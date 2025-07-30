@@ -88,56 +88,16 @@ const Register = () => {
       }
 
       if (data && data.length > 0) {
-        // Auto-login the user after successful registration
-        try {
-          const { data: loginData, error: loginError } = await authenticateUser(username.trim(), password);
-          
-          if (loginError || !loginData || loginData.length === 0) {
-            // If auto-login fails, show success message and redirect to login
-            const toastId = toast({
-              title: "Registration Successful",
-              description: "Account created! Please login to continue.",
-            });
-            
-            setTimeout(() => {
-              if (toastId && toastId.dismiss) {
-                toastId.dismiss();
-              }
-            }, 5000);
-            
-            navigate('/login');
-            return;
-          }
-
-          // Auto-login successful - store user data and redirect to dashboard
-          const user = loginData[0];
-          
-          // Check if user is active
-          if (!user.is_active) {
-            const toastId = toast({
-              title: "Account Access Denied",
-              description: "Your account has been deactivated. Please contact support for assistance.",
-              variant: "destructive",
-            });
-            
-            setTimeout(() => {
-              if (toastId && toastId.dismiss) {
-                toastId.dismiss();
-              }
-            }, 5000);
-            navigate('/login');
-            return;
-          }
-
-          // Store user data in localStorage for session management
-          const userWithRole = { ...user, role: 'user' };
-          localStorage.setItem('currentUser', JSON.stringify(userWithRole));
-          
+        // Use the registration data directly instead of re-authenticating
+        const user = data[0];
+        console.log('Registration successful, user data:', user);
+        
+        // Check if user is active
+        if (!user.is_active) {
           const toastId = toast({
-            title: "Welcome to ECLBET!",
-            description: referralCode.trim() 
-              ? `Account created successfully! Your referrer has received 50 bonus points. Welcome, ${user.username}!`
-              : `Account created successfully! Welcome, ${user.username}!`,
+            title: "Account Access Denied",
+            description: "Your account has been deactivated. Please contact support for assistance.",
+            variant: "destructive",
           });
           
           setTimeout(() => {
@@ -145,25 +105,46 @@ const Register = () => {
               toastId.dismiss();
             }
           }, 5000);
-          
-          // Redirect to main page (logged in state)
-          navigate('/');
-          
-        } catch (autoLoginError) {
-          // If auto-login fails, redirect to login page
-          const toastId = toast({
-            title: "Registration Successful",
-            description: "Account created! Please login to continue.",
-          });
-          
-          setTimeout(() => {
-            if (toastId && toastId.dismiss) {
-              toastId.dismiss();
-            }
-          }, 5000);
-          
           navigate('/login');
+          return;
         }
+
+        // Store user data in localStorage for session management
+        const userWithRole = { ...user, role: 'user' };
+        localStorage.setItem('currentUser', JSON.stringify(userWithRole));
+        console.log('User data stored in localStorage:', userWithRole);
+        
+        const toastId = toast({
+          title: "Welcome to ECLBET!",
+          description: referralCode.trim() 
+            ? `Account created successfully! Your referrer has received 50 bonus points. Welcome, ${user.username}!`
+            : `Account created successfully! Welcome, ${user.username}!`,
+        });
+        
+        setTimeout(() => {
+          if (toastId && toastId.dismiss) {
+            toastId.dismiss();
+          }
+        }, 5000);
+        
+        // Redirect to main page (logged in state)
+        console.log('Redirecting to main page...');
+        navigate('/');
+      } else {
+        // No user data returned from registration
+        const toastId = toast({
+          title: "Registration Error",
+          description: "Registration completed but user data is missing. Please login manually.",
+          variant: "destructive",
+        });
+        
+        setTimeout(() => {
+          if (toastId && toastId.dismiss) {
+            toastId.dismiss();
+          }
+        }, 5000);
+        
+        navigate('/login');
       }
     } catch (error) {
       const toastId = toast({

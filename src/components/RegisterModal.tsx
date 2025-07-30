@@ -62,59 +62,46 @@ const RegisterModal = ({ isOpen, onClose, onSwitchToLogin }: RegisterModalProps)
       }
 
       if (data && data.length > 0) {
-        // Auto-login the user after successful registration
-        try {
-          const { data: loginData, error: loginError } = await authenticateUser(username.trim(), password);
-          
-          if (loginError || !loginData || loginData.length === 0) {
-            // If auto-login fails, show success message and close modal
-            toast({
-              title: "Registration Successful",
-              description: "Account created! Please login to continue.",
-            });
-            
-            onClose();
-            return;
-          }
-
-          // Auto-login successful - store user data
-          const user = loginData[0];
-          
-          // Check if user is active
-          if (!user.is_active) {
-            toast({
-              title: "Account Access Denied",
-              description: "Your account has been deactivated. Please contact support for assistance.",
-              variant: "destructive",
-            });
-            onClose();
-            return;
-          }
-
-          // Store user data in localStorage for session management
-          const userWithRole = { ...user, role: 'user' };
-          localStorage.setItem('currentUser', JSON.stringify(userWithRole));
-          localStorage.setItem('wagerWaveUser', JSON.stringify(user));
-          
+        // Use the registration data directly
+        const user = data[0];
+        console.log('Registration successful in modal, user data:', user);
+        
+        // Check if user is active
+        if (!user.is_active) {
           toast({
-            title: "Welcome to ECLBET!",
-            description: `Account created successfully! Welcome, ${user.username}!`,
+            title: "Account Access Denied",
+            description: "Your account has been deactivated. Please contact support for assistance.",
+            variant: "destructive",
           });
-          
           onClose();
-          
-          // Refresh the page to show logged-in state
-          window.location.reload();
-          
-        } catch (autoLoginError) {
-          // If auto-login fails, close modal
-          toast({
-            title: "Registration Successful",
-            description: "Account created! Please login to continue.",
-          });
-          
-          onClose();
+          return;
         }
+
+        // Store user data in localStorage for session management
+        const userWithRole = { ...user, role: 'user' };
+        localStorage.setItem('currentUser', JSON.stringify(userWithRole));
+        localStorage.setItem('wagerWaveUser', JSON.stringify(user));
+        console.log('User data stored in localStorage from modal:', userWithRole);
+        
+        toast({
+          title: "Welcome to ECLBET!",
+          description: `Account created successfully! Welcome, ${user.username}!`,
+        });
+        
+        onClose();
+        
+        // Refresh the page to show logged-in state
+        console.log('Refreshing page to show logged-in state...');
+        window.location.reload();
+      } else {
+        // No user data returned from registration
+        toast({
+          title: "Registration Error",
+          description: "Registration completed but user data is missing. Please login manually.",
+          variant: "destructive",
+        });
+        
+        onClose();
       }
     } catch (error) {
       toast({
