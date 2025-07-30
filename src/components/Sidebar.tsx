@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
+import { SessionManager } from '@/utils/sessionManager';
 
 interface SidebarProps {
   isCollapsed: boolean;
@@ -23,8 +24,8 @@ const Sidebar = ({ isCollapsed, onToggle }: SidebarProps) => {
   const navigate = useNavigate();
 
   // Check if a user is currently logged in
-  const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
-  const isUserLoggedIn = currentUser.id && currentUser.role === 'user';
+  const currentUser = SessionManager.getCurrentUser();
+  const isUserLoggedIn = currentUser?.id && currentUser.role === 'user';
 
   const menuItems = [
     { icon: Home, label: 'Home', href: '/' },

@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { LogOut, Gamepad2, ArrowLeft, Trophy } from 'lucide-react';
+import { SessionManager } from '@/utils/sessionManager';
 
 const GamePage = () => {
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -12,8 +13,8 @@ const GamePage = () => {
 
   useEffect(() => {
     // Check if current user is a regular user
-    const user = JSON.parse(localStorage.getItem('currentUser') || '{}');
-    if (!user.id || user.role !== 'user') {
+    const user = SessionManager.getCurrentUser();
+    if (!user?.id || user.role !== 'user') {
       navigate('/login');
       return;
     }
@@ -25,7 +26,7 @@ const GamePage = () => {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem('currentUser');
+    SessionManager.logout();
     navigate('/');
     toast({
       title: "Logged Out",

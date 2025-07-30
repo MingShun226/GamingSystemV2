@@ -1,13 +1,14 @@
 
 import { useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { SessionManager } from '@/utils/sessionManager';
 
 const AdminRouteProtection = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
   useEffect(() => {
-    const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+    const currentUser = SessionManager.getCurrentUser();
     
     // If admin is logged in and trying to access the landing page, redirect to admin dashboard
     if (currentUser.role === 'admin' && location.pathname === '/') {

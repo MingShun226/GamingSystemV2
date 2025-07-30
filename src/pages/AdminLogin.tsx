@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { User, Eye, EyeOff } from 'lucide-react';
+import { SessionManager } from '@/utils/sessionManager';
 
 const AdminLogin = () => {
   const [username, setUsername] = useState('');
@@ -68,8 +69,8 @@ const AdminLogin = () => {
       return;
     }
 
-    // Set current user in localStorage
-    localStorage.setItem('currentUser', JSON.stringify(admin));
+    // Set current user using SessionManager
+    SessionManager.login(admin, 'admin');
 
     const toastId = toast({
       title: "Admin Login Successful",

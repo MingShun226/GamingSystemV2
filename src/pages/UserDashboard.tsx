@@ -8,6 +8,7 @@ import TopUpModal from '@/components/TopUpModal';
 import ReferralCodeWidget from '@/components/ReferralCodeWidget';
 import ReferralRecordsTable from '@/components/ReferralRecordsTable';
 import VipBadge from '@/components/VipBadge';
+import { SessionManager } from '@/utils/sessionManager';
 
 const UserDashboard = () => {
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -18,8 +19,8 @@ const UserDashboard = () => {
 
   useEffect(() => {
     // Check if current user is a regular user
-    const user = JSON.parse(localStorage.getItem('currentUser') || '{}');
-    if (!user.id || user.role !== 'user') {
+    const user = SessionManager.getCurrentUser();
+    if (!user?.id || user.role !== 'user') {
       navigate('/login');
       return;
     }
@@ -27,7 +28,7 @@ const UserDashboard = () => {
   }, [navigate]);
 
   const handleLogout = () => {
-    localStorage.removeItem('currentUser');
+    SessionManager.logout();
     navigate('/');
     toast({
       title: "Logged Out",
@@ -56,7 +57,7 @@ const UserDashboard = () => {
       });
     }
     
-    localStorage.setItem('currentUser', JSON.stringify(updatedUser));
+    SessionManager.updateCurrentUser(updatedUser);
     setCurrentUser(updatedUser);
   };
 

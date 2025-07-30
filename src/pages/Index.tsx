@@ -9,6 +9,7 @@ import BettingTransaction from '@/components/BettingTransaction';
 import MovieSection from '@/components/MovieSection';
 import SponsorsSection from '@/components/SponsorsSection';
 import Footer from '@/components/Footer';
+import { SessionManager } from '@/utils/sessionManager';
 
 const Index = () => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -18,9 +19,8 @@ const Index = () => {
 
   useEffect(() => {
     const checkUser = () => {
-      const user = localStorage.getItem('currentUser');
-      if (user) {
-        const parsedUser = JSON.parse(user);
+      const parsedUser = SessionManager.getCurrentUser();
+      if (parsedUser) {
         
         // Prevent admin from accessing landing page
         if (parsedUser.role === 'admin') {

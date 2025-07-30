@@ -7,6 +7,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import TopUpModal from '@/components/TopUpModal';
 import { processGameTransaction } from '@/lib/supabase';
+import { SessionManager } from '@/utils/sessionManager';
 
 interface Card {
   suit: string;
@@ -43,8 +44,8 @@ const BlackjackPage = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    const user = JSON.parse(localStorage.getItem('currentUser') || '{}');
-    if (!user.id || user.role !== 'user') {
+    const user = SessionManager.getCurrentUser();
+    if (!user?.id || user.role !== 'user') {
       navigate('/login');
       return;
     }
@@ -354,7 +355,7 @@ const BlackjackPage = () => {
           const newPoints = currentUser.points + totalWinAmount;
           const updatedUser = { ...currentUser, points: newPoints };
           setCurrentUser(updatedUser);
-          localStorage.setItem('currentUser', JSON.stringify(updatedUser));
+          SessionManager.updateCurrentUser(updatedUser);
         } else {
           console.error('Failed to process game transaction:', result.error);
           toast({
@@ -440,7 +441,7 @@ const BlackjackPage = () => {
           const lostPoints = currentUser.points - totalBet;
           const updatedUser = { ...currentUser, points: lostPoints };
           setCurrentUser(updatedUser);
-          localStorage.setItem('currentUser', JSON.stringify(updatedUser));
+          SessionManager.updateCurrentUser(updatedUser);
         }
       } catch (error) {
         console.error('Error processing abandonment transaction:', error);

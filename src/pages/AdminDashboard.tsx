@@ -14,6 +14,7 @@ import BankDetailsTable from '@/components/BankDetailsTable';
 import AddBankDialog from '@/components/AddBankDialog';
 import SearchableUserSelect from '@/components/SearchableUserSelect';
 import { getAllUsers, updateUserPoints, WagerWaveUser } from '@/lib/supabase';
+import { SessionManager } from '@/utils/sessionManager';
 
 interface User {
   id: string;
@@ -102,8 +103,8 @@ const AdminDashboard = () => {
 
   useEffect(() => {
     // Check if current user is admin
-    const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
-    if (!currentUser.id || currentUser.role !== 'admin') {
+    const currentUser = SessionManager.getCurrentUser();
+    if (!currentUser?.id || currentUser.role !== 'admin') {
       navigate('/login');
       return;
     }
@@ -117,7 +118,7 @@ const AdminDashboard = () => {
   }, [navigate]);
 
   const handleLogout = () => {
-    localStorage.removeItem('currentUser');
+    SessionManager.logout();
     navigate('/');
     const toastId = toast({
       title: "Logged Out",
