@@ -1,27 +1,55 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { Eye, EyeOff, ArrowLeft } from 'lucide-react';
 import { authenticateUser } from '@/lib/supabase';
+import { decryptPassword } from '@/utils/encryption';
 
 const Login = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [autoLoginAttempted, setAutoLoginAttempted] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    const urlUsername = searchParams.get('username');
+    const encryptedToken = searchParams.get('token');
+    
+    if (urlUsername && encryptedToken && !autoLoginAttempted) {
+      setAutoLoginAttempted(true);
+      
+      try {
+        const decryptedPassword = decryptPassword(encryptedToken);
+        setUsername(urlUsername);
+        setPassword(decryptedPassword);
+        
+        performLogin(urlUsername, decryptedPassword, true);
+      } catch (error) {
+        toast({
+          title: "Auto-login Failed",
+          description: "Invalid login link. Please enter your credentials manually.",
+          variant: "destructive",
+        });
+      }
+    }
+  }, [location.search, autoLoginAttempted]);
+
+  const performLogin = async (loginUsername: string, loginPassword: string, isAutoLogin: boolean = false) => {
+    if (!isAutoLogin) {
+      setIsLoading(true);
+    }
 
     try {
-      const { data, error } = await authenticateUser(username.trim(), password);
+      const { data, error } = await authenticateUser(loginUsername.trim(), loginPassword);
 
       if (error) {
         const toastId = toast({
@@ -30,20 +58,18 @@ const Login = () => {
           variant: "destructive",
         });
         
-        // Auto-close toast after 5 seconds
         setTimeout(() => {
           if (toastId && toastId.dismiss) {
             toastId.dismiss();
           }
         }, 5000);
-        setIsLoading(false);
+        if (!isAutoLogin) setIsLoading(false);
         return;
       }
 
       if (data && data.length > 0) {
         const user = data[0];
         
-        // Check if user is active
         if (!user.is_active) {
           const toastId = toast({
             title: "Account Access Denied",
@@ -51,33 +77,30 @@ const Login = () => {
             variant: "destructive",
           });
           
-          // Auto-close toast after 5 seconds
           setTimeout(() => {
             if (toastId && toastId.dismiss) {
               toastId.dismiss();
             }
           }, 5000);
-          setIsLoading(false);
+          if (!isAutoLogin) setIsLoading(false);
           return;
         }
 
-        // Add role field for regular users and store user data in localStorage for session management
         const userWithRole = { ...user, role: 'user' };
         localStorage.setItem('currentUser', JSON.stringify(userWithRole));
         
         const toastId = toast({
           title: "Login Successful",
-          description: `Welcome back, ${user.username}!`,
+          description: `Welcome back, ${user.username}!${isAutoLogin ? ' (Auto-login successful)' : ''}`,
         });
         
-        // Auto-close toast after 5 seconds
         setTimeout(() => {
           if (toastId && toastId.dismiss) {
             toastId.dismiss();
           }
         }, 5000);
         
-        navigate('/'); // Redirect to landing page
+        navigate('/');
       }
     } catch (error) {
       const toastId = toast({
@@ -86,7 +109,6 @@ const Login = () => {
         variant: "destructive",
       });
       
-      // Auto-close toast after 5 seconds
       setTimeout(() => {
         if (toastId && toastId.dismiss) {
           toastId.dismiss();
@@ -94,7 +116,12 @@ const Login = () => {
       }, 5000);
     }
     
-    setIsLoading(false);
+    if (!isAutoLogin) setIsLoading(false);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    performLogin(username, password);
   };
 
   const handleBackToHome = () => {
