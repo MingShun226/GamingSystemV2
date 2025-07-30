@@ -146,8 +146,8 @@ const Register = () => {
             }
           }, 5000);
           
-          // Redirect to user dashboard
-          navigate('/user-dashboard');
+          // Redirect to main page (logged in state)
+          navigate('/');
           
         } catch (autoLoginError) {
           // If auto-login fails, redirect to login page
