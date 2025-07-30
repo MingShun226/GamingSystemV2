@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { Eye, EyeOff } from 'lucide-react';
-import { registerUser, authenticateUser } from '@/lib/supabase';
+import { registerUser, authenticateUser, processReferralRegistrationBonus } from '@/lib/supabase';
 
 const Register = () => {
   const [username, setUsername] = useState('');

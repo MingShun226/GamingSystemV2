@@ -218,6 +218,89 @@ export const getUserTopUpRecords = async (userId: string) => {
   }
 };
 
+// Process referral registration bonus (+50 points)
+export const processReferralRegistrationBonus = async (referrerUserId: string, newUserId: string, newUsername: string) => {
+  try {
+    // Award +50 points to referrer
+    const { error: pointsError } = await supabase.rpc('add_user_points', {
+      user_id_input: referrerUserId,
+      points_to_add: 50
+    });
+
+    if (pointsError) {
+      console.error('Error adding referral registration bonus:', pointsError);
+      return { success: false, error: pointsError.message };
+    }
+
+    // Create/update referral record with registration bonus
+    const { error: recordError } = await supabase.rpc('upsert_referral_record', {
+      referrer_id_input: referrerUserId,
+      referred_user_id_input: newUserId,
+      referred_username_input: newUsername,
+      commission_amount_input: 50,
+      topup_amount_input: null
+    });
+
+    if (recordError) {
+      console.error('Error creating referral record:', recordError);
+      return { success: false, error: recordError.message };
+    }
+
+    return { success: true };
+  } catch (error: any) {
+    console.error('Error processing referral registration bonus:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+// Process referral top-up commission (10% of top-up amount)
+export const processReferralTopUpCommission = async (userId: string, topUpAmount: number) => {
+  try {
+    // Check if user was referred by someone
+    const { data: userData, error: userError } = await supabase
+      .from('wager_wave_users')
+      .select('referred_by')
+      .eq('id', userId)
+      .single();
+
+    if (userError || !userData || !userData.referred_by) {
+      console.log('User was not referred or error fetching user data');
+      return { success: true, message: 'No referrer found' };
+    }
+
+    const commission = Math.floor(topUpAmount * 0.1); // 10% commission
+
+    // Award commission points to referrer
+    const { error: pointsError } = await supabase.rpc('add_user_points', {
+      user_id_input: userData.referred_by,
+      points_to_add: commission
+    });
+
+    if (pointsError) {
+      console.error('Error adding top-up commission:', pointsError);
+      return { success: false, error: pointsError.message };
+    }
+
+    // Update referral record with top-up commission
+    const { error: recordError } = await supabase.rpc('update_referral_topup_commission', {
+      referrer_id_input: userData.referred_by,
+      referred_user_id_input: userId,
+      commission_amount_input: commission,
+      topup_amount_input: topUpAmount
+    });
+
+    if (recordError) {
+      console.error('Error updating referral record:', recordError);
+      return { success: false, error: recordError.message };
+    }
+
+    return { success: true, commission };
+  } catch (error: any) {
+    console.error('Error processing referral top-up commission:', error);
+    return { success: false, error: error.message };
+  }
+};
+
 // Get all users (admin function)
 export const getAllUsers = async () => {
   try {
