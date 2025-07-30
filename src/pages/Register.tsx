@@ -6,6 +6,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { Eye, EyeOff } from 'lucide-react';
 import { registerUser, authenticateUser, processReferralRegistrationBonus } from '@/lib/supabase';
+import { SessionManager } from '@/utils/sessionManager';
 
 const Register = () => {
   const [username, setUsername] = useState('');
@@ -109,10 +110,9 @@ const Register = () => {
           return;
         }
 
-        // Store user data in localStorage for session management
-        const userWithRole = { ...user, role: 'user' };
-        localStorage.setItem('currentUser', JSON.stringify(userWithRole));
-        console.log('User data stored in localStorage:', userWithRole);
+        // Use SessionManager for proper session handling
+        SessionManager.login(user, 'user');
+        console.log('User session created via SessionManager:', user.username);
         
         const toastId = toast({
           title: "Welcome to ECLBET!",

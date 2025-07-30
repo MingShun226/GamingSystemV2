@@ -8,6 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Eye, EyeOff, ArrowLeft } from 'lucide-react';
 import { authenticateUser } from '@/lib/supabase';
 import { decryptPassword, clearUrlParameters } from '@/utils/encryption';
+import { SessionManager } from '@/utils/sessionManager';
 
 const Login = () => {
   const [username, setUsername] = useState('');
@@ -109,8 +110,8 @@ const Login = () => {
           return;
         }
 
-        const userWithRole = { ...user, role: 'user' };
-        localStorage.setItem('currentUser', JSON.stringify(userWithRole));
+        // Use SessionManager for proper session handling
+        SessionManager.login(user, 'user');
         
         const toastId = toast({
           title: "Login Successful",

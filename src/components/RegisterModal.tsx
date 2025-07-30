@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { registerUser, authenticateUser } from '@/lib/supabase';
+import { SessionManager } from '@/utils/sessionManager';
 import { Eye, EyeOff } from 'lucide-react';
 
 interface RegisterModalProps {
@@ -77,11 +78,9 @@ const RegisterModal = ({ isOpen, onClose, onSwitchToLogin }: RegisterModalProps)
           return;
         }
 
-        // Store user data in localStorage for session management
-        const userWithRole = { ...user, role: 'user' };
-        localStorage.setItem('currentUser', JSON.stringify(userWithRole));
-        localStorage.setItem('wagerWaveUser', JSON.stringify(user));
-        console.log('User data stored in localStorage from modal:', userWithRole);
+        // Use SessionManager for proper session handling
+        SessionManager.login(user, 'user');
+        console.log('User session created via SessionManager from modal:', user.username);
         
         toast({
           title: "Welcome to ECLBET!",

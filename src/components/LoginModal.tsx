@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { authenticateUser, WagerWaveUser } from '@/lib/supabase';
+import { SessionManager } from '@/utils/sessionManager';
 import { Eye, EyeOff } from 'lucide-react';
 
 interface LoginModalProps {
@@ -62,9 +63,8 @@ const LoginModal = ({ isOpen, onClose, onSwitchToRegister }: LoginModalProps) =>
           return;
         }
 
-        // Store user data in localStorage for session management
-        localStorage.setItem('currentUser', JSON.stringify(user));
-        localStorage.setItem('wagerWaveUser', JSON.stringify(user));
+        // Use SessionManager for proper session handling
+        SessionManager.login(user, 'user');
         
         toast({
           title: "Login Successful",

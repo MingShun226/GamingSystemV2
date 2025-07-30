@@ -11,6 +11,7 @@ import SpecialDialog from './SpecialDialog';
 import TopUpModal from './TopUpModal';
 import VipBadge from './VipBadge';
 import { useToast } from '@/hooks/use-toast';
+import { SessionManager } from '@/utils/sessionManager';
 
 interface HeaderProps {
   onSidebarToggle: () => void;
@@ -28,12 +29,8 @@ const Header = ({ onSidebarToggle }: HeaderProps) => {
 
   useEffect(() => {
     const checkUser = () => {
-      const user = localStorage.getItem('currentUser');
-      if (user) {
-        setCurrentUser(JSON.parse(user));
-      } else {
-        setCurrentUser(null);
-      }
+      const user = SessionManager.getCurrentUser();
+      setCurrentUser(user);
     };
 
     // Check user on mount
@@ -50,7 +47,7 @@ const Header = ({ onSidebarToggle }: HeaderProps) => {
   }, []);
 
   const handleLogout = () => {
-    localStorage.removeItem('currentUser');
+    SessionManager.logout();
     setCurrentUser(null);
     navigate('/');
     toast({
@@ -74,23 +71,15 @@ const Header = ({ onSidebarToggle }: HeaderProps) => {
       updatedUser.isVip = true;
       updatedUser.rank = 'VIP';
       
-      // Update users in localStorage
-      const users = JSON.parse(localStorage.getItem('users') || '[]');
-      const userIndex = users.findIndex((u: any) => u.id === currentUser.id);
-      if (userIndex !== -1) {
-        users[userIndex].isVip = true;
-        users[userIndex].rank = 'VIP';
-        localStorage.setItem('users', JSON.stringify(users));
-      }
-      
       toast({
         title: "Congratulations! 🎉",
         description: "You are now a VIP customer!",
       });
     }
     
+    // Use SessionManager to update user data
+    SessionManager.updateCurrentUser(updatedUser);
     setCurrentUser(updatedUser);
-    localStorage.setItem('currentUser', JSON.stringify(updatedUser));
   };
 
   const handleGameRedirect = () => {

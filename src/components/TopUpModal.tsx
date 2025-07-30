@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { CreditCard, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { processTopUp } from '@/lib/supabase';
+import { SessionManager } from '@/utils/sessionManager';
 
 interface TopUpModalProps {
   isOpen: boolean;
@@ -46,9 +47,9 @@ const TopUpModal = ({ isOpen, onClose, currentPoints, onTopUpSuccess }: TopUpMod
 
     try {
       // Get current user
-      const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+      const currentUser = SessionManager.getCurrentUser();
       
-      if (!currentUser.id) {
+      if (!currentUser?.id) {
         toast({
           title: "Error",
           description: "User not found. Please log in again.",
@@ -69,7 +70,7 @@ const TopUpModal = ({ isOpen, onClose, currentPoints, onTopUpSuccess }: TopUpMod
         return;
       }
 
-      // Update current user points in localStorage
+      // Update current user points using SessionManager
       const newPoints = currentUser.points + topUpAmount;
       const updatedCurrentUser = { 
         ...currentUser, 
@@ -78,7 +79,7 @@ const TopUpModal = ({ isOpen, onClose, currentPoints, onTopUpSuccess }: TopUpMod
         is_vip: newPoints >= 1000 ? true : currentUser.is_vip,
         rank: newPoints >= 1000 ? 'VIP' : currentUser.rank
       };
-      localStorage.setItem('currentUser', JSON.stringify(updatedCurrentUser));
+      SessionManager.updateCurrentUser(updatedCurrentUser);
       
       onTopUpSuccess(newPoints);
       
