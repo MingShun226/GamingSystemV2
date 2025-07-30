@@ -124,7 +124,7 @@ export const registerUser = async (username: string, password: string, phone?: s
 // Top-up function with referral commission processing
 export const processTopUp = async (userId: string, amount: number) => {
   try {
-    const { data, error } = await supabase.rpc('process_topup_fixed', {
+    const { data, error } = await supabase.rpc('process_topup', {
       user_id_input: userId,
       amount_input: amount
     });
@@ -148,6 +148,27 @@ export const processTopUp = async (userId: string, amount: number) => {
       success: false,
       error: { message: 'Top-up processing failed' }
     };
+  }
+};
+
+// Get user data by ID to refresh points and other info
+export const getUserById = async (userId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('wager_wave_users')
+      .select('*')
+      .eq('id', userId)
+      .single();
+
+    if (error) {
+      console.error('Get user error:', error);
+      return { data: null, error };
+    }
+
+    return { data, error: null };
+  } catch (error) {
+    console.error('Get user exception:', error);
+    return { data: null, error: { message: 'Failed to get user data' } };
   }
 };
 

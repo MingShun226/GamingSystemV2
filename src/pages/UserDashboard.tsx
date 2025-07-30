@@ -9,6 +9,7 @@ import ReferralCodeWidget from '@/components/ReferralCodeWidget';
 import ReferralRecordsTable from '@/components/ReferralRecordsTable';
 import VipBadge from '@/components/VipBadge';
 import { SessionManager } from '@/utils/sessionManager';
+import { getUserById } from '@/lib/supabase';
 
 const UserDashboard = () => {
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -25,6 +26,31 @@ const UserDashboard = () => {
       return;
     }
     setCurrentUser(user);
+    
+    // Set up periodic refresh to get updated points from database
+    const refreshUserData = async () => {
+      try {
+        const { data: freshUserData, error } = await getUserById(user.id);
+        if (!error && freshUserData) {
+          // Update current user with fresh data while preserving role
+          const updatedUser = {
+            ...user,
+            ...freshUserData,
+            role: user.role // Preserve role from session
+          };
+          SessionManager.updateCurrentUser(updatedUser);
+          setCurrentUser(updatedUser);
+        }
+      } catch (error) {
+        console.error('Error refreshing user data:', error);
+      }
+    };
+    
+    // Refresh immediately and then every 10 seconds
+    refreshUserData();
+    const interval = setInterval(refreshUserData, 10000);
+    
+    return () => clearInterval(interval);
   }, [navigate]);
 
   const handleLogout = () => {
