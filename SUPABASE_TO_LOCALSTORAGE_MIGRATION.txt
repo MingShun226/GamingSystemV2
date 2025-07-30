@@ -1,0 +1,226 @@
+# SUPABASE TO LOCAL STORAGE MIGRATION GUIDE
+
+## OVERVIEW
+This document outlines the complete migration from Supabase authentication to localStorage-based authentication for the login and register functionality.
+
+## FILES TO MODIFY/CREATE
+
+### 1. CREATE: src/lib/localStorage.ts
+Replace src/lib/supabase.ts with local storage implementation.
+
+**Purpose**: Local authentication service
+**Key Functions**:
+- authenticateUser(username, password) - replaces supabase.rpc('authenticate_wager_user')
+- registerUser(username, password, phone) - replaces supabase.rpc('register_wager_user')
+- User interface matching WagerWaveUser from supabase.ts
+
+**Implementation Details**:
+```typescript
+export interface WagerWaveUser {
+  id: string
+  username: string
+  phone: string
+  login_count: number
+  is_active: boolean
+  created_at: string
+  last_login?: string
+}
+
+export const authenticateUser = async (username: string, password: string) => {
+  // Get users from localStorage
+  const users = JSON.parse(localStorage.getItem('users') || '[]');
+  
+  // Find user by username
+  const user = users.find(u => u.username === username && u.password === password && u.status === 'active');
+  
+  if (user) {
+    // Update login count and last login
+    user.login_count = (user.login_count || 0) + 1;
+    user.last_login = new Date().toISOString();
+    
+    // Save updated users array
+    localStorage.setItem('users', JSON.stringify(users));
+    
+    return {
+      data: [{
+        id: user.id,
+        username: user.username,
+        phone: user.phone,
+        login_count: user.login_count,
+        is_active: user.status === 'active',
+        created_at: user.createdAt,
+        last_login: user.last_login
+      }],
+      error: null
+    };
+  }
+  
+  return {
+    data: null,
+    error: { message: 'Invalid credentials' }
+  };
+};
+
+export const registerUser = async (username: string, password: string, phone?: string) => {
+  const users = JSON.parse(localStorage.getItem('users') || '[]');
+  
+  // Check if username exists
+  if (users.find(u => u.username === username)) {
+    return {
+      data: null,
+      error: { message: 'Username already exists' }
+    };
+  }
+  
+  // Check if phone exists (if provided)
+  if (phone && users.find(u => u.phone === phone)) {
+    return {
+      data: null,
+      error: { message: 'Phone number already registered' }
+    };
+  }
+  
+  // Create new user
+  const newUser = {
+    id: Date.now().toString(),
+    username,
+    password,
+    phone: phone || '',
+    role: 'user',
+    points: 0,
+    status: 'active',
+    createdAt: new Date().toISOString(),
+    login_count: 0
+  };
+  
+  users.push(newUser);
+  localStorage.setItem('users', JSON.stringify(users));
+  
+  return {
+    data: [{
+      id: newUser.id,
+      username: newUser.username,
+      phone: newUser.phone,
+      login_count: 0,
+      is_active: true,
+      created_at: newUser.createdAt
+    }],
+    error: null
+  };
+};
+```
+
+### 2. MODIFY: src/pages/Login.tsx
+**Changes Required**:
+- Line 10: Replace `import { supabase } from '@/lib/supabase';` with `import { authenticateUser } from '@/lib/localStorage';`
+- Lines 117-120: Replace supabase.rpc call with authenticateUser call
+- Keep all other functionality (auto-fill, encryption, localStorage storage, etc.)
+
+**Specific Code Changes**:
+```typescript
+// OLD (lines 117-120):
+const { data, error } = await supabase.rpc('authenticate_wager_user', {
+  username_input: username.trim(),
+  password_input: password
+});
+
+// NEW:
+const { data, error } = await authenticateUser(username.trim(), password);
+```
+
+### 3. MODIFY: src/pages/Register.tsx
+**Changes Required**:
+- Line 8: Replace `import { supabase } from '@/lib/supabase';` with `import { registerUser } from '@/lib/localStorage';`
+- Lines 50-54: Replace supabase.rpc call with registerUser call
+- Keep existing localStorage backup logic (lines 84-97)
+
+**Specific Code Changes**:
+```typescript
+// OLD (lines 50-54):
+const { data, error } = await supabase.rpc('register_wager_user', {
+  username_input: username.trim(),
+  password_input: password,
+  phone_input: phone.trim() || null
+});
+
+// NEW:
+const { data, error } = await registerUser(username.trim(), password, phone.trim() || null);
+```
+
+### 4. MODIFY: src/components/LoginModal.tsx
+**Changes Required**:
+- Line 8: Replace `import { supabase, WagerWaveUser } from '@/lib/supabase';` with `import { authenticateUser, WagerWaveUser } from '@/lib/localStorage';`
+- Lines 38-41: Replace supabase.rpc call with authenticateUser call
+
+**Specific Code Changes**:
+```typescript
+// OLD (lines 38-41):
+const { data, error } = await supabase.rpc('authenticate_wager_user', {
+  username_input: username.trim(),
+  password_input: password
+});
+
+// NEW:
+const { data, error } = await authenticateUser(username.trim(), password);
+```
+
+### 5. MODIFY: src/components/RegisterModal.tsx
+**Changes Required**:
+- Line 8: Replace `import { supabase } from '@/lib/supabase';` with `import { registerUser } from '@/lib/localStorage';`
+- Lines 38-42: Replace supabase.rpc call with registerUser call
+
+**Specific Code Changes**:
+```typescript
+// OLD (lines 38-42):
+const { data, error } = await supabase.rpc('register_wager_user', {
+  username_input: username.trim(),
+  password_input: password,
+  phone_input: phone.trim() || null
+});
+
+// NEW:
+const { data, error } = await registerUser(username.trim(), password, phone.trim() || null);
+```
+
+## PRESERVED FEATURES
+1. **Auto-fill functionality** with encrypted token decryption (Login.tsx lines 22-88)
+2. **Password visibility toggle** (Eye/EyeOff icons)
+3. **Form validation** and error handling
+4. **Toast notifications** for success/error messages
+5. **localStorage session management** (both wagerWaveUser and currentUser formats)
+6. **User interface and styling** remain unchanged
+7. **Navigation and routing** logic unchanged
+
+## DATA STRUCTURE COMPATIBILITY
+The localStorage implementation maintains the same user data structure as Supabase:
+- User ID generation (timestamp-based instead of UUID)
+- Same field names and types in WagerWaveUser interface
+- Compatible response format (data/error structure)
+- Maintains login_count and last_login tracking
+
+## ERROR HANDLING
+Preserves all existing error scenarios:
+- Invalid credentials
+- Duplicate username
+- Duplicate phone number
+- Account deactivation check
+- General error handling
+
+## TESTING CHECKLIST
+After implementation:
+1. ✓ Registration creates user in localStorage
+2. ✓ Login validates against localStorage users
+3. ✓ Auto-fill functionality works with encrypted URLs
+4. ✓ Error messages display correctly
+5. ✓ User session persists in localStorage
+6. ✓ Modal and page versions both work
+7. ✓ Navigation between login/register works
+
+## DEPENDENCIES TO REMOVE
+After migration, these can be removed from package.json:
+- @supabase/supabase-js
+- @supabase/auth-js (if not used elsewhere)
+
+## FILES THAT CAN BE DELETED
+- src/lib/supabase.ts (after confirming no other usage)
+- test-supabase.js (if it exists)
