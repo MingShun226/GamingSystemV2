@@ -281,14 +281,19 @@ BEGIN
     SET points = points + amount_input
     WHERE id = user_id_input;
     
-    -- Create top-up record
-    INSERT INTO topup_records (user_id, amount, created_at)
-    VALUES (user_id_input, amount_input, NOW());
-    
     -- Process referral commission if user was referred
     IF referrer_user_id IS NOT NULL THEN
         commission_amount := FLOOR(amount_input * 0.1); -- 10% commission
         
+        -- Create top-up record with commission info
+        INSERT INTO topup_records (user_id, amount, commission_paid, referrer_id, created_at)
+        VALUES (user_id_input, amount_input, commission_amount, referrer_user_id, NOW());
+    ELSE
+        -- Create top-up record without commission
+        INSERT INTO topup_records (user_id, amount, created_at)
+        VALUES (user_id_input, amount_input, NOW());
+    END IF;
+    
         -- Add commission to referrer
         UPDATE wager_wave_users 
         SET points = points + commission_amount
