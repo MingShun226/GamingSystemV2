@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { Eye, EyeOff } from 'lucide-react';
-import { registerUser } from '@/lib/supabase';
+import { registerUser, authenticateUser } from '@/lib/supabase';
 
 const Register = () => {
   const [username, setUsername] = useState('');
@@ -88,21 +88,82 @@ const Register = () => {
       }
 
       if (data && data.length > 0) {
-        const toastId = toast({
-          title: "Registration Successful",
-          description: referralCode.trim() 
-            ? "Account created successfully! Your referrer has received 50 bonus points."
-            : "User account has been created successfully!",
-        });
-        
-        // Auto-close toast after 5 seconds
-        setTimeout(() => {
-          if (toastId && toastId.dismiss) {
-            toastId.dismiss();
+        // Auto-login the user after successful registration
+        try {
+          const { data: loginData, error: loginError } = await authenticateUser(username.trim(), password);
+          
+          if (loginError || !loginData || loginData.length === 0) {
+            // If auto-login fails, show success message and redirect to login
+            const toastId = toast({
+              title: "Registration Successful",
+              description: "Account created! Please login to continue.",
+            });
+            
+            setTimeout(() => {
+              if (toastId && toastId.dismiss) {
+                toastId.dismiss();
+              }
+            }, 5000);
+            
+            navigate('/login');
+            return;
           }
-        }, 5000);
-        
-        navigate('/login');
+
+          // Auto-login successful - store user data and redirect to dashboard
+          const user = loginData[0];
+          
+          // Check if user is active
+          if (!user.is_active) {
+            const toastId = toast({
+              title: "Account Access Denied",
+              description: "Your account has been deactivated. Please contact support for assistance.",
+              variant: "destructive",
+            });
+            
+            setTimeout(() => {
+              if (toastId && toastId.dismiss) {
+                toastId.dismiss();
+              }
+            }, 5000);
+            navigate('/login');
+            return;
+          }
+
+          // Store user data in localStorage for session management
+          const userWithRole = { ...user, role: 'user' };
+          localStorage.setItem('currentUser', JSON.stringify(userWithRole));
+          
+          const toastId = toast({
+            title: "Welcome to ECLBET!",
+            description: referralCode.trim() 
+              ? `Account created successfully! Your referrer has received 50 bonus points. Welcome, ${user.username}!`
+              : `Account created successfully! Welcome, ${user.username}!`,
+          });
+          
+          setTimeout(() => {
+            if (toastId && toastId.dismiss) {
+              toastId.dismiss();
+            }
+          }, 5000);
+          
+          // Redirect to user dashboard
+          navigate('/user-dashboard');
+          
+        } catch (autoLoginError) {
+          // If auto-login fails, redirect to login page
+          const toastId = toast({
+            title: "Registration Successful",
+            description: "Account created! Please login to continue.",
+          });
+          
+          setTimeout(() => {
+            if (toastId && toastId.dismiss) {
+              toastId.dismiss();
+            }
+          }, 5000);
+          
+          navigate('/login');
+        }
       }
     } catch (error) {
       const toastId = toast({

@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { registerUser } from '@/lib/supabase';
+import { registerUser, authenticateUser } from '@/lib/supabase';
 import { Eye, EyeOff } from 'lucide-react';
 
 interface RegisterModalProps {
@@ -62,12 +62,59 @@ const RegisterModal = ({ isOpen, onClose, onSwitchToLogin }: RegisterModalProps)
       }
 
       if (data && data.length > 0) {
-        toast({
-          title: "Registration Successful",
-          description: "Your account has been created successfully!",
-        });
-        
-        onClose();
+        // Auto-login the user after successful registration
+        try {
+          const { data: loginData, error: loginError } = await authenticateUser(username.trim(), password);
+          
+          if (loginError || !loginData || loginData.length === 0) {
+            // If auto-login fails, show success message and close modal
+            toast({
+              title: "Registration Successful",
+              description: "Account created! Please login to continue.",
+            });
+            
+            onClose();
+            return;
+          }
+
+          // Auto-login successful - store user data
+          const user = loginData[0];
+          
+          // Check if user is active
+          if (!user.is_active) {
+            toast({
+              title: "Account Access Denied",
+              description: "Your account has been deactivated. Please contact support for assistance.",
+              variant: "destructive",
+            });
+            onClose();
+            return;
+          }
+
+          // Store user data in localStorage for session management
+          const userWithRole = { ...user, role: 'user' };
+          localStorage.setItem('currentUser', JSON.stringify(userWithRole));
+          localStorage.setItem('wagerWaveUser', JSON.stringify(user));
+          
+          toast({
+            title: "Welcome to ECLBET!",
+            description: `Account created successfully! Welcome, ${user.username}!`,
+          });
+          
+          onClose();
+          
+          // Refresh the page to show logged-in state
+          window.location.reload();
+          
+        } catch (autoLoginError) {
+          // If auto-login fails, close modal
+          toast({
+            title: "Registration Successful",
+            description: "Account created! Please login to continue.",
+          });
+          
+          onClose();
+        }
       }
     } catch (error) {
       toast({
