@@ -47,21 +47,33 @@ export class SessionManager {
   
   // Logout current user (clear all session data)
   static logout(): void {
-    const currentUser = this.getCurrentUser();
-    
-    // Clear all user-related localStorage keys
-    localStorage.removeItem(CURRENT_USER_KEY);
-    localStorage.removeItem(WAGER_WAVE_USER_KEY);
-    
-    // Clear any other user-specific data if needed
-    // Note: We keep referralRecords and topUpRecords as they're global data
-    
-    if (currentUser) {
-      console.log('User logged out:', currentUser.username);
+    try {
+      const userData = localStorage.getItem(CURRENT_USER_KEY);
+      let username = 'Unknown User';
+      
+      if (userData) {
+        try {
+          const user = JSON.parse(userData);
+          username = user?.username || 'Unknown User';
+        } catch (e) {
+          // Ignore parsing errors during logout
+        }
+      }
+      
+      // Clear all user-related localStorage keys
+      localStorage.removeItem(CURRENT_USER_KEY);
+      localStorage.removeItem(WAGER_WAVE_USER_KEY);
+      
+      console.log('User logged out:', username);
+      
+      // Dispatch custom event for components to listen to
+      window.dispatchEvent(new CustomEvent('userLoggedOut'));
+    } catch (error) {
+      console.error('Error during logout:', error);
+      // Force clear localStorage even if there's an error
+      localStorage.removeItem(CURRENT_USER_KEY);
+      localStorage.removeItem(WAGER_WAVE_USER_KEY);
     }
-    
-    // Dispatch custom event for components to listen to
-    window.dispatchEvent(new CustomEvent('userLoggedOut'));
   }
   
   // Get current logged-in user
@@ -72,13 +84,18 @@ export class SessionManager {
       
       const user: UserSession = JSON.parse(userData);
       
-      // Update last activity
-      user.lastActivity = new Date().toISOString();
-      localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(user));
+      // Validate user object has required properties
+      if (!user || !user.id || !user.username) {
+        console.warn('Invalid user session detected, clearing...');
+        this.logout();
+        return null;
+      }
       
       return user;
     } catch (error) {
       console.error('Error getting current user:', error);
+      // Clear corrupted session data
+      this.logout();
       return null;
     }
   }
@@ -119,6 +136,15 @@ export class SessionManager {
     window.dispatchEvent(new CustomEvent('userUpdated', { 
       detail: updatedUser 
     }));
+  }
+  
+  // Update last activity timestamp
+  static updateLastActivity(): void {
+    const currentUser = this.getCurrentUser();
+    if (currentUser) {
+      currentUser.lastActivity = new Date().toISOString();
+      localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(currentUser));
+    }
   }
   
   // Get session info for debugging

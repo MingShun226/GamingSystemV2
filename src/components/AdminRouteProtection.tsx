@@ -11,7 +11,7 @@ const AdminRouteProtection = () => {
     const currentUser = SessionManager.getCurrentUser();
     
     // If admin is logged in and trying to access the landing page, redirect to admin dashboard
-    if (currentUser.role === 'admin' && location.pathname === '/') {
+    if (currentUser?.role === 'admin' && location.pathname === '/') {
       console.log('Admin detected on landing page, redirecting to admin dashboard');
       navigate('/admin-dashboard', { replace: true });
     }
