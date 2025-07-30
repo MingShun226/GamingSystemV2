@@ -124,27 +124,50 @@ export const registerUser = async (username: string, password: string, phone?: s
 // Top-up function with referral commission processing
 export const processTopUp = async (userId: string, amount: number) => {
   try {
-    const { data, error } = await supabase.rpc('process_topup', {
+    const { data, error } = await supabase.rpc('process_topup_fixed', {
       user_id_input: userId,
       amount_input: amount
     });
 
     if (error) {
+      console.error('Top-up error:', error);
       return {
         success: false,
         error: { message: error.message }
       };
     }
 
+    console.log('Top-up result:', data);
     return {
       success: true,
       data
     };
   } catch (error) {
+    console.error('Top-up exception:', error);
     return {
       success: false,
       error: { message: 'Top-up processing failed' }
     };
+  }
+};
+
+// Debug function to check referral info
+export const debugReferralInfo = async (username: string) => {
+  try {
+    const { data, error } = await supabase.rpc('debug_referral_info', {
+      username_input: username
+    });
+
+    if (error) {
+      console.error('Debug error:', error);
+      return { data: null, error };
+    }
+
+    console.log('Debug referral info:', data);
+    return { data, error: null };
+  } catch (error) {
+    console.error('Debug exception:', error);
+    return { data: null, error: { message: 'Debug failed' } };
   }
 };
 

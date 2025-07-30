@@ -1,6 +1,40 @@
 -- Supabase Database Functions for Referral System
 -- Run these in your Supabase SQL Editor
 
+-- First, ensure the required columns exist in your tables
+-- Run this to add missing columns if they don't exist:
+
+-- Add referred_by column to wager_wave_users if it doesn't exist
+ALTER TABLE wager_wave_users 
+ADD COLUMN IF NOT EXISTS referred_by UUID REFERENCES wager_wave_users(id);
+
+-- Add points column to wager_wave_users if it doesn't exist
+ALTER TABLE wager_wave_users 
+ADD COLUMN IF NOT EXISTS points INTEGER DEFAULT 0;
+
+-- Create referral_records table if it doesn't exist
+CREATE TABLE IF NOT EXISTS referral_records (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    referrer_id UUID NOT NULL REFERENCES wager_wave_users(id),
+    referred_user_id UUID NOT NULL REFERENCES wager_wave_users(id),
+    referred_username TEXT NOT NULL,
+    registration_date TIMESTAMPTZ DEFAULT NOW(),
+    total_commission_earned INTEGER DEFAULT 0,
+    last_topup_amount INTEGER,
+    last_topup_date TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Create topup_records table if it doesn't exist
+CREATE TABLE IF NOT EXISTS topup_records (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    user_id UUID NOT NULL REFERENCES wager_wave_users(id),
+    amount INTEGER NOT NULL,
+    commission_paid INTEGER DEFAULT 0,
+    referrer_id UUID REFERENCES wager_wave_users(id),
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- 1. Function to add points to a user
 CREATE OR REPLACE FUNCTION add_user_points(user_id_input UUID, points_to_add INTEGER)
 RETURNS JSON
@@ -275,6 +309,136 @@ BEGIN
         'amount_added', amount_input,
         'commission_paid', COALESCE(commission_amount, 0),
         'referrer_rewarded', referrer_user_id IS NOT NULL
+    );
+END;
+$$;
+
+-- 6. Debug function to check referral relationships
+CREATE OR REPLACE FUNCTION debug_referral_info(username_input TEXT)
+RETURNS JSON
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+    user_info RECORD;
+    referrer_info RECORD;
+    referral_records_count INTEGER;
+    total_commission INTEGER;
+BEGIN
+    -- Get user info
+    SELECT id, username, referral_code, referred_by, points
+    INTO user_info
+    FROM wager_wave_users 
+    WHERE username = username_input;
+    
+    IF NOT FOUND THEN
+        RETURN json_build_object('error', 'User not found');
+    END IF;
+    
+    -- Get referrer info if exists
+    IF user_info.referred_by IS NOT NULL THEN
+        SELECT username, referral_code, points
+        INTO referrer_info
+        FROM wager_wave_users 
+        WHERE id = user_info.referred_by;
+    END IF;
+    
+    -- Get referral records count and total commission for this user as referrer
+    SELECT COUNT(*), COALESCE(SUM(total_commission_earned), 0)
+    INTO referral_records_count, total_commission
+    FROM referral_records 
+    WHERE referrer_id = user_info.id;
+    
+    RETURN json_build_object(
+        'user_id', user_info.id,
+        'username', user_info.username,
+        'referral_code', user_info.referral_code,
+        'points', user_info.points,
+        'was_referred_by', CASE 
+            WHEN user_info.referred_by IS NOT NULL THEN referrer_info.username 
+            ELSE 'No referrer' 
+        END,
+        'referrer_referral_code', COALESCE(referrer_info.referral_code, 'N/A'),
+        'total_people_referred', referral_records_count,
+        'total_commission_earned', total_commission
+    );
+END;
+$$;
+
+-- 7. Fixed process_topup function with better logging
+CREATE OR REPLACE FUNCTION process_topup_fixed(
+    user_id_input UUID,
+    amount_input INTEGER
+)
+RETURNS JSON
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+    referrer_user_id UUID;
+    commission_amount INTEGER;
+    username TEXT;
+    referrer_username TEXT;
+    record_updated BOOLEAN := FALSE;
+BEGIN
+    -- Get user info
+    SELECT u.username, u.referred_by 
+    INTO username, referrer_user_id
+    FROM wager_wave_users u
+    WHERE u.id = user_id_input;
+    
+    IF NOT FOUND THEN
+        RETURN json_build_object('success', false, 'error', 'User not found');
+    END IF;
+    
+    -- Add points to user
+    UPDATE wager_wave_users 
+    SET points = points + amount_input
+    WHERE id = user_id_input;
+    
+    -- Process referral commission if user was referred
+    IF referrer_user_id IS NOT NULL THEN
+        commission_amount := FLOOR(amount_input * 0.1); -- 10% commission
+        
+        -- Get referrer username for logging
+        SELECT username INTO referrer_username 
+        FROM wager_wave_users 
+        WHERE id = referrer_user_id;
+        
+        -- Add commission to referrer
+        UPDATE wager_wave_users 
+        SET points = points + commission_amount
+        WHERE id = referrer_user_id;
+        
+        -- Update referral record with top-up commission
+        UPDATE referral_records
+        SET 
+            total_commission_earned = total_commission_earned + commission_amount,
+            last_topup_amount = amount_input,
+            last_topup_date = NOW()
+        WHERE referrer_id = referrer_user_id 
+          AND referred_user_id = user_id_input;
+          
+        -- Check if update was successful
+        GET DIAGNOSTICS record_updated = FOUND;
+        
+        -- Create top-up record with referral info
+        INSERT INTO topup_records (user_id, amount, commission_paid, referrer_id)
+        VALUES (user_id_input, amount_input, commission_amount, referrer_user_id);
+    ELSE
+        -- Create top-up record without referral info
+        INSERT INTO topup_records (user_id, amount)
+        VALUES (user_id_input, amount_input);
+    END IF;
+    
+    RETURN json_build_object(
+        'success', true, 
+        'user', username,
+        'amount_added', amount_input,
+        'had_referrer', referrer_user_id IS NOT NULL,
+        'referrer', COALESCE(referrer_username, 'None'),
+        'commission_paid', COALESCE(commission_amount, 0),
+        'referral_record_updated', record_updated
     );
 END;
 $$;
