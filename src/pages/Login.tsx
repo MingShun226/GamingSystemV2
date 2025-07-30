@@ -7,7 +7,7 @@ import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { Eye, EyeOff, ArrowLeft } from 'lucide-react';
 import { authenticateUser } from '@/lib/supabase';
-import { decryptPassword } from '@/utils/encryption';
+import { decryptPassword, clearUrlParameters } from '@/utils/encryption';
 
 const Login = () => {
   const [username, setUsername] = useState('');
@@ -21,22 +21,45 @@ const Login = () => {
 
   useEffect(() => {
     const searchParams = new URLSearchParams(location.search);
-    const urlUsername = searchParams.get('username');
+    const autoUsername = searchParams.get('username');
     const encryptedToken = searchParams.get('token');
+    const legacyPassword = searchParams.get('password'); // Fallback for old links
     
-    if (urlUsername && encryptedToken && !autoLoginAttempted) {
+    if (autoUsername && (encryptedToken || legacyPassword) && !autoLoginAttempted) {
       setAutoLoginAttempted(true);
       
-      try {
-        const decryptedPassword = decryptPassword(encryptedToken);
-        setUsername(urlUsername);
-        setPassword(decryptedPassword);
+      let autoPassword: string | null = null;
+      
+      if (encryptedToken) {
+        // Decrypt the password from the token
+        autoPassword = decryptPassword(encryptedToken);
+        console.log('🔓 Password decrypted from secure token');
+      } else if (legacyPassword) {
+        // Fallback for old non-encrypted links
+        autoPassword = legacyPassword;
+        console.log('⚠️ Using legacy password parameter');
+      }
+      
+      if (autoPassword) {
+        setUsername(autoUsername);
+        setPassword(autoPassword);
         
-        performLogin(urlUsername, decryptedPassword, true);
-      } catch (error) {
         toast({
-          title: "Auto-login Failed",
-          description: "Invalid login link. Please enter your credentials manually.",
+          title: "🎉 Welcome!",
+          description: "Your credentials have been auto-filled. Just click Sign In!",
+        });
+        
+        console.log('✅ Auto-fill successful');
+        
+        // Clear URL parameters after a short delay for security
+        setTimeout(() => {
+          clearUrlParameters();
+        }, 2000);
+      } else {
+        console.error('❌ Failed to decrypt password');
+        toast({
+          title: "🔒 Invalid secure link",
+          description: "Please enter credentials manually.",
           variant: "destructive",
         });
       }
