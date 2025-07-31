@@ -109,8 +109,20 @@ export const registerUser = async (username: string, password: string, phone?: s
       };
     }
 
+    // Transform the returned data to match expected format
+    const transformedData = Array.isArray(data) && data.length > 0 ? [{
+      id: data[0].user_id,
+      username: data[0].user_username,
+      phone: data[0].user_phone,
+      referral_code: data[0].user_referral_code,
+      points: data[0].user_points,
+      is_active: data[0].user_is_active,
+      login_count: data[0].user_login_count,
+      created_at: data[0].user_created_at
+    }] : data;
+
     return {
-      data,
+      data: transformedData,
       error: null
     };
   } catch (error) {
