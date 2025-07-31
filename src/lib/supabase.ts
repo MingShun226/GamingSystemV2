@@ -95,11 +95,25 @@ export const authenticateUser = async (username: string, password: string) => {
 // Enhanced registration function with referral support
 export const registerUser = async (username: string, password: string, phone?: string, referralCode?: string) => {
   try {
+    // First, convert referral code to referrer ID if provided
+    let referredById = null;
+    if (referralCode?.trim()) {
+      const { data: referrerData } = await supabase
+        .from('wager_wave_users')
+        .select('id')
+        .eq('referral_code', referralCode.trim())
+        .single();
+      
+      if (referrerData) {
+        referredById = referrerData.id;
+      }
+    }
+
     const { data, error } = await supabase.rpc('register_wager_user', {
       username_input: username.trim(),
       password_input: password,
       phone_input: phone?.trim() || null,
-      referral_code_input: referralCode?.trim() || null
+      referred_by_id: referredById
     });
 
     if (error) {
@@ -109,16 +123,17 @@ export const registerUser = async (username: string, password: string, phone?: s
       };
     }
 
-    // Transform the returned data to match expected format
-    const transformedData = Array.isArray(data) && data.length > 0 ? [{
-      id: data[0].user_id,
-      username: data[0].user_username,
-      phone: data[0].user_phone,
-      referral_code: data[0].user_referral_code,
-      points: data[0].user_points,
-      is_active: data[0].user_is_active,
-      login_count: data[0].user_login_count,
-      created_at: data[0].user_created_at
+    // PostgreSQL returns array, get first element and transform to expected format
+    const userData = Array.isArray(data) ? data[0] : data;
+    const transformedData = userData ? [{
+      id: userData.id,
+      username: userData.username,
+      phone: userData.phone,
+      referral_code: userData.referral_code,
+      points: userData.points,
+      is_active: userData.is_active,
+      login_count: userData.login_count,
+      created_at: userData.created_at
     }] : data;
 
     return {
