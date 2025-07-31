@@ -519,14 +519,17 @@ export const authenticateAdmin = async (username: string, password: string) => {
       };
     }
 
+    // PostgreSQL functions return arrays, so get the first element
+    const adminData = Array.isArray(data) ? data[0] : data;
+    
     // Transform the returned data to match expected format
-    const transformedData = data ? {
-      id: data.admin_id,
-      username: data.admin_username,
-      email: data.admin_email,
-      is_active: data.admin_is_active,
-      created_at: data.admin_created_at,
-      last_login: data.admin_last_login
+    const transformedData = adminData ? {
+      id: adminData.admin_id,
+      username: adminData.admin_username,
+      email: adminData.admin_email,
+      is_active: adminData.admin_is_active,
+      created_at: adminData.admin_created_at,
+      last_login: adminData.admin_last_login
     } : null;
 
     return {
@@ -555,8 +558,11 @@ export const createAdminSession = async (adminId: string) => {
       };
     }
 
+    // PostgreSQL functions return arrays, so get the first element
+    const sessionData = Array.isArray(data) ? data[0] : data;
+
     return {
-      data,
+      data: sessionData,
       error: null
     };
   } catch (error) {

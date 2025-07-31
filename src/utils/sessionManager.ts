@@ -69,6 +69,7 @@ export class SessionManager {
         return { success: false, error: authResult.error?.message || 'Authentication failed' };
       }
 
+      // authResult.data is already transformed in the supabase function
       const adminData = authResult.data;
       
       // Create session in database
@@ -77,6 +78,7 @@ export class SessionManager {
         return { success: false, error: sessionResult.error?.message || 'Failed to create session' };
       }
 
+      // sessionResult.data is already transformed in the supabase function
       const sessionData = sessionResult.data;
       
       // Create user session object
