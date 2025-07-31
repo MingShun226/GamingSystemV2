@@ -124,7 +124,7 @@ export const registerUser = async (username: string, password: string, phone?: s
 // Top-up function with referral commission processing
 export const processTopUp = async (userId: string, amount: number) => {
   try {
-    const { data, error } = await supabase.rpc('process_topup', {
+    const { data, error } = await supabase.rpc('process_topup_fixed', {
       user_id_input: userId,
       amount_input: amount
     });
@@ -482,4 +482,209 @@ export const generateReferralCode = (userId: string, username: string): string =
 // Generate referral link (utility function)
 export const generateReferralLink = (referralCode: string): string => {
   return `${window.location.origin}/register?ref=${referralCode}`;
+};
+
+// Admin authentication interface
+export interface AdminUser {
+  id: string;
+  username: string;
+  email?: string;
+  is_active: boolean;
+  created_at: string;
+  last_login?: string;
+}
+
+// Admin session interface
+export interface AdminSession {
+  id: string;
+  admin_id: string;
+  session_token: string;
+  expires_at: string;
+  last_activity: string;
+  created_at: string;
+}
+
+// Admin authentication function
+export const authenticateAdmin = async (username: string, password: string) => {
+  try {
+    const { data, error } = await supabase.rpc('authenticate_admin', {
+      username_input: username.trim(),
+      password_input: password
+    });
+
+    if (error) {
+      return {
+        data: null,
+        error: { message: error.message }
+      };
+    }
+
+    return {
+      data,
+      error: null
+    };
+  } catch (error) {
+    return {
+      data: null,
+      error: { message: 'Admin authentication failed' }
+    };
+  }
+};
+
+// Create admin session
+export const createAdminSession = async (adminId: string) => {
+  try {
+    const { data, error } = await supabase.rpc('create_admin_session', {
+      admin_id_input: adminId
+    });
+
+    if (error) {
+      return {
+        data: null,
+        error: { message: error.message }
+      };
+    }
+
+    return {
+      data,
+      error: null
+    };
+  } catch (error) {
+    return {
+      data: null,
+      error: { message: 'Failed to create admin session' }
+    };
+  }
+};
+
+// Validate admin session
+export const validateAdminSession = async (sessionToken: string) => {
+  try {
+    const { data, error } = await supabase.rpc('validate_admin_session', {
+      session_token_input: sessionToken
+    });
+
+    if (error) {
+      return {
+        data: null,
+        error: { message: error.message }
+      };
+    }
+
+    return {
+      data,
+      error: null
+    };
+  } catch (error) {
+    return {
+      data: null,
+      error: { message: 'Session validation failed' }
+    };
+  }
+};
+
+// Update admin session activity
+export const updateAdminSessionActivity = async (sessionToken: string) => {
+  try {
+    const { data, error } = await supabase.rpc('update_admin_session_activity', {
+      session_token_input: sessionToken
+    });
+
+    if (error) {
+      return {
+        success: false,
+        error: { message: error.message }
+      };
+    }
+
+    return {
+      success: true,
+      data
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: { message: 'Failed to update session activity' }
+    };
+  }
+};
+
+// Logout admin (invalidate session)
+export const logoutAdmin = async (sessionToken: string) => {
+  try {
+    const { data, error } = await supabase.rpc('logout_admin', {
+      session_token_input: sessionToken
+    });
+
+    if (error) {
+      return {
+        success: false,
+        error: { message: error.message }
+      };
+    }
+
+    return {
+      success: true,
+      data
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: { message: 'Logout failed' }
+    };
+  }
+};
+
+// Get admin by session token
+export const getAdminBySession = async (sessionToken: string) => {
+  try {
+    const { data, error } = await supabase.rpc('get_admin_by_session', {
+      session_token_input: sessionToken
+    });
+
+    if (error) {
+      return {
+        data: null,
+        error: { message: error.message }
+      };
+    }
+
+    return {
+      data,
+      error: null
+    };
+  } catch (error) {
+    return {
+      data: null,
+      error: { message: 'Failed to get admin data' }
+    };
+  }
+};
+
+// Register admin function
+export const registerAdmin = async (username: string, password: string, email?: string) => {
+  try {
+    const { data, error } = await supabase.rpc('register_admin', {
+      username_input: username.trim(),
+      password_input: password,
+      email_input: email?.trim() || null
+    });
+
+    if (error) {
+      return {
+        data: null,
+        error: { message: error.message }
+      };
+    }
+
+    return {
+      data,
+      error: null
+    };
+  } catch (error) {
+    return {
+      data: null,
+      error: { message: 'Admin registration failed' }
+    };
+  }
 };

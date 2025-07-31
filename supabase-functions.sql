@@ -252,73 +252,8 @@ BEGIN
 END;
 $$;
 
--- 5. Function to process top-up with referral commission
-CREATE OR REPLACE FUNCTION process_topup(
-    user_id_input UUID,
-    amount_input INTEGER
-)
-RETURNS JSON
-LANGUAGE plpgsql
-SECURITY DEFINER
-AS $$
-DECLARE
-    referrer_user_id UUID;
-    commission_amount INTEGER;
-    username TEXT;
-BEGIN
-    -- Get user info
-    SELECT wager_wave_users.username, wager_wave_users.referred_by 
-    INTO username, referrer_user_id
-    FROM wager_wave_users 
-    WHERE id = user_id_input;
-    
-    IF NOT FOUND THEN
-        RETURN json_build_object('success', false, 'error', 'User not found');
-    END IF;
-    
-    -- Add points to user
-    UPDATE wager_wave_users 
-    SET points = points + amount_input
-    WHERE id = user_id_input;
-    
-    -- Process referral commission if user was referred
-    IF referrer_user_id IS NOT NULL THEN
-        commission_amount := FLOOR(amount_input * 0.1); -- 10% commission
-        
-        -- Create top-up record with commission info
-        INSERT INTO topup_records (user_id, amount, commission_paid, referrer_id, created_at)
-        VALUES (user_id_input, amount_input, commission_amount, referrer_user_id, NOW());
-    ELSE
-        -- Create top-up record without commission
-        INSERT INTO topup_records (user_id, amount, created_at)
-        VALUES (user_id_input, amount_input, NOW());
-    END IF;
-    
-        -- Add commission to referrer
-        UPDATE wager_wave_users 
-        SET points = points + commission_amount
-        WHERE id = referrer_user_id;
-        
-        -- Update referral record with top-up commission
-        UPDATE referral_records
-        SET 
-            total_commission_earned = total_commission_earned + commission_amount,
-            last_topup_amount = amount_input,
-            last_topup_date = NOW()
-        WHERE referrer_id = referrer_user_id 
-          AND referred_user_id = user_id_input;
-    END IF;
-    
-    RETURN json_build_object(
-        'success', true, 
-        'amount_added', amount_input,
-        'commission_paid', COALESCE(commission_amount, 0),
-        'referrer_rewarded', referrer_user_id IS NOT NULL
-    );
-END;
-$$;
 
--- 6. Debug function to check referral relationships
+-- 5. Debug function to check referral relationships
 CREATE OR REPLACE FUNCTION debug_referral_info(username_input TEXT)
 RETURNS JSON
 LANGUAGE plpgsql
@@ -370,7 +305,7 @@ BEGIN
 END;
 $$;
 
--- 7. Fixed process_topup function with better logging
+-- 6. Process top-up function with referral commission and enhanced logging
 CREATE OR REPLACE FUNCTION process_topup_fixed(
     user_id_input UUID,
     amount_input INTEGER
@@ -425,7 +360,7 @@ BEGIN
           AND referred_user_id = user_id_input;
           
         -- Check if update was successful
-        GET DIAGNOSTICS record_updated = FOUND;
+        GET DIAGNOSTICS record_updated = ROW_COUNT;
         
         -- Create top-up record with referral info
         INSERT INTO topup_records (user_id, amount, commission_paid, referrer_id)
@@ -443,7 +378,7 @@ BEGIN
         'had_referrer', referrer_user_id IS NOT NULL,
         'referrer', COALESCE(referrer_username, 'None'),
         'commission_paid', COALESCE(commission_amount, 0),
-        'referral_record_updated', record_updated
+        'referral_record_updated', record_updated > 0
     );
 END;
 $$;

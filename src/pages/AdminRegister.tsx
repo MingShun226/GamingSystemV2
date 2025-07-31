@@ -4,19 +4,21 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
-import { Eye, EyeOff, User } from 'lucide-react';
+import { Eye, EyeOff, User, Loader2 } from 'lucide-react';
+import { registerAdmin } from '@/lib/supabase';
 
 const AdminRegister = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!username.trim() || !password.trim() || !confirmPassword.trim()) {
@@ -51,14 +53,10 @@ const AdminRegister = () => {
       return;
     }
 
-    // Check if username already exists
-    const users = JSON.parse(localStorage.getItem('users') || '[]');
-    const existingUser = users.find((user: any) => user.username === username.trim());
-    
-    if (existingUser) {
+    if (password.length < 6) {
       const toastId = toast({
         title: "Error",
-        description: "Username already exists",
+        description: "Password must be at least 6 characters long",
         variant: "destructive",
       });
       
@@ -71,34 +69,58 @@ const AdminRegister = () => {
       return;
     }
 
-    // Create new admin
-    const newAdmin = {
-      id: Date.now().toString(),
-      username: username.trim(),
-      password,
-      role: 'admin',
-      phone: phone.trim(),
-      points: 0,
-      status: 'active',
-      createdAt: new Date().toISOString()
-    };
+    setIsLoading(true);
 
-    users.push(newAdmin);
-    localStorage.setItem('users', JSON.stringify(users));
-
-    const toastId = toast({
-      title: "Admin Registration Successful",
-      description: "Admin account has been created successfully!",
-    });
-    
-    // Auto-close toast after 5 seconds
-    setTimeout(() => {
-      if (toastId && toastId.dismiss) {
-        toastId.dismiss();
+    try {
+      // Register admin in database
+      const registerResult = await registerAdmin(username.trim(), password, email.trim() || undefined);
+      
+      if (!registerResult.data || registerResult.error) {
+        const toastId = toast({
+          title: "Registration Failed",
+          description: registerResult.error?.message || "Failed to create admin account",
+          variant: "destructive",
+        });
+        
+        // Auto-close toast after 5 seconds
+        setTimeout(() => {
+          if (toastId && toastId.dismiss) {
+            toastId.dismiss();
+          }
+        }, 5000);
+        return;
       }
-    }, 5000);
-    
-    navigate('/admin-login');
+
+      const toastId = toast({
+        title: "Admin Registration Successful",
+        description: "Admin account has been created successfully!",
+      });
+      
+      // Auto-close toast after 5 seconds
+      setTimeout(() => {
+        if (toastId && toastId.dismiss) {
+          toastId.dismiss();
+        }
+      }, 5000);
+      
+      navigate('/admin-login');
+    } catch (error) {
+      console.error('Admin registration error:', error);
+      const toastId = toast({
+        title: "Registration Error",
+        description: "An unexpected error occurred. Please try again.",
+        variant: "destructive",
+      });
+      
+      // Auto-close toast after 5 seconds
+      setTimeout(() => {
+        if (toastId && toastId.dismiss) {
+          toastId.dismiss();
+        }
+      }, 5000);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -183,19 +205,27 @@ const AdminRegister = () => {
 
             <div>
               <Input
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="Phone number (optional)"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Email address (optional)"
                 className="bg-gray-700/50 border-gray-600 text-white placeholder-gray-400 h-12"
               />
             </div>
 
             <Button 
               type="submit" 
+              disabled={isLoading}
               className="w-full gaming-button font-semibold h-12 rounded-lg"
             >
-              Register as Admin
+              {isLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Registering...
+                </>
+              ) : (
+                "Register as Admin"
+              )}
             </Button>
 
             <div className="text-center text-gray-400 text-sm">

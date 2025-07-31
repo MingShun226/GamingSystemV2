@@ -3,17 +3,18 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
-import { User, Eye, EyeOff } from 'lucide-react';
+import { User, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { SessionManager } from '@/utils/sessionManager';
 
 const AdminLogin = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!username.trim() || !password.trim()) {
@@ -32,59 +33,58 @@ const AdminLogin = () => {
       return;
     }
 
-    // Check admin credentials
-    const users = JSON.parse(localStorage.getItem('users') || '[]');
-    const admin = users.find((u: any) => u.username === username.trim() && u.password === password && u.role === 'admin');
-    
-    if (!admin) {
-      const toastId = toast({
-        title: "Error",
-        description: "Invalid admin credentials",
-        variant: "destructive",
-      });
+    setIsLoading(true);
+
+    try {
+      // Use database authentication for admin
+      const loginResult = await SessionManager.loginAdmin(username.trim(), password);
       
-      // Auto-close toast after 5 seconds
-      setTimeout(() => {
-        if (toastId && toastId.dismiss) {
-          toastId.dismiss();
-        }
-      }, 5000);
-      return;
-    }
-
-    // Check if admin status is active
-    if (admin.status !== 'active') {
-      const toastId = toast({
-        title: "Admin Access Denied",
-        description: "Your admin account has been deactivated. Please contact system administrator.",
-        variant: "destructive",
-      });
-      
-      // Auto-close toast after 5 seconds
-      setTimeout(() => {
-        if (toastId && toastId.dismiss) {
-          toastId.dismiss();
-        }
-      }, 5000);
-      return;
-    }
-
-    // Set current user using SessionManager
-    SessionManager.login(admin, 'admin');
-
-    const toastId = toast({
-      title: "Admin Login Successful",
-      description: `Welcome back, Admin!`,
-    });
-    
-    // Auto-close toast after 5 seconds
-    setTimeout(() => {
-      if (toastId && toastId.dismiss) {
-        toastId.dismiss();
+      if (!loginResult.success) {
+        const toastId = toast({
+          title: "Login Failed",
+          description: loginResult.error || "Invalid admin credentials",
+          variant: "destructive",
+        });
+        
+        // Auto-close toast after 5 seconds
+        setTimeout(() => {
+          if (toastId && toastId.dismiss) {
+            toastId.dismiss();
+          }
+        }, 5000);
+        return;
       }
-    }, 5000);
-    
-    navigate('/admin-dashboard');
+
+      const toastId = toast({
+        title: "Admin Login Successful",
+        description: `Welcome back, ${loginResult.data?.username}!`,
+      });
+      
+      // Auto-close toast after 5 seconds
+      setTimeout(() => {
+        if (toastId && toastId.dismiss) {
+          toastId.dismiss();
+        }
+      }, 5000);
+      
+      navigate('/admin-dashboard');
+    } catch (error) {
+      console.error('Admin login error:', error);
+      const toastId = toast({
+        title: "Login Error",
+        description: "An unexpected error occurred. Please try again.",
+        variant: "destructive",
+      });
+      
+      // Auto-close toast after 5 seconds
+      setTimeout(() => {
+        if (toastId && toastId.dismiss) {
+          toastId.dismiss();
+        }
+      }, 5000);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -158,9 +158,17 @@ const AdminLogin = () => {
 
             <Button 
               type="submit" 
+              disabled={isLoading}
               className="w-full gaming-button font-semibold h-12 rounded-lg"
             >
-              Sign in as Admin
+              {isLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Signing in...
+                </>
+              ) : (
+                "Sign in as Admin"
+              )}
             </Button>
 
             <div className="text-center text-gray-400 text-sm">
