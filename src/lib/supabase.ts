@@ -519,8 +519,18 @@ export const authenticateAdmin = async (username: string, password: string) => {
       };
     }
 
+    // Transform the returned data to match expected format
+    const transformedData = data ? {
+      id: data.admin_id,
+      username: data.admin_username,
+      email: data.admin_email,
+      is_active: data.admin_is_active,
+      created_at: data.admin_created_at,
+      last_login: data.admin_last_login
+    } : null;
+
     return {
-      data,
+      data: transformedData,
       error: null
     };
   } catch (error) {
@@ -571,8 +581,18 @@ export const validateAdminSession = async (sessionToken: string) => {
       };
     }
 
+    // Transform the returned data to match expected format
+    const transformedData = data ? {
+      id: data.admin_id,
+      username: data.admin_username,
+      email: data.admin_email,
+      is_active: data.admin_is_active,
+      session_expires_at: data.session_expires_at,
+      last_activity: data.last_activity
+    } : null;
+
     return {
-      data,
+      data: transformedData,
       error: null
     };
   } catch (error) {
@@ -649,8 +669,19 @@ export const getAdminBySession = async (sessionToken: string) => {
       };
     }
 
+    // Transform the returned data to match expected format
+    const transformedData = data ? {
+      id: data.admin_id,
+      username: data.admin_username,
+      email: data.admin_email,
+      is_active: data.admin_is_active,
+      created_at: data.admin_created_at,
+      last_login: data.admin_last_login,
+      session_expires_at: data.session_expires_at
+    } : null;
+
     return {
-      data,
+      data: transformedData,
       error: null
     };
   } catch (error) {
@@ -677,8 +708,17 @@ export const registerAdmin = async (username: string, password: string, email?: 
       };
     }
 
+    // Transform the returned data to match expected format
+    const transformedData = data ? {
+      id: data.admin_id,
+      username: data.admin_username,
+      email: data.admin_email,
+      is_active: data.admin_is_active,
+      created_at: data.admin_created_at
+    } : null;
+
     return {
-      data,
+      data: transformedData,
       error: null
     };
   } catch (error) {

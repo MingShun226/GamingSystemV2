@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS referral_records (
 CREATE TABLE IF NOT EXISTS topup_records (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     user_id UUID NOT NULL REFERENCES wager_wave_users(id),
+    username TEXT NOT NULL,
     amount INTEGER NOT NULL,
     commission_paid INTEGER DEFAULT 0,
     referrer_id UUID REFERENCES wager_wave_users(id),
@@ -319,7 +320,7 @@ DECLARE
     commission_amount INTEGER;
     username TEXT;
     referrer_username TEXT;
-    record_updated BOOLEAN := FALSE;
+    rows_updated INTEGER := 0;
 BEGIN
     -- Get user info
     SELECT u.username, u.referred_by 
@@ -341,9 +342,9 @@ BEGIN
         commission_amount := FLOOR(amount_input * 0.1); -- 10% commission
         
         -- Get referrer username for logging
-        SELECT username INTO referrer_username 
-        FROM wager_wave_users 
-        WHERE id = referrer_user_id;
+        SELECT u.username INTO referrer_username 
+        FROM wager_wave_users u
+        WHERE u.id = referrer_user_id;
         
         -- Add commission to referrer
         UPDATE wager_wave_users 
@@ -360,15 +361,15 @@ BEGIN
           AND referred_user_id = user_id_input;
           
         -- Check if update was successful
-        GET DIAGNOSTICS record_updated = ROW_COUNT;
+        GET DIAGNOSTICS rows_updated = ROW_COUNT;
         
         -- Create top-up record with referral info
-        INSERT INTO topup_records (user_id, amount, commission_paid, referrer_id)
-        VALUES (user_id_input, amount_input, commission_amount, referrer_user_id);
+        INSERT INTO topup_records (user_id, username, amount, commission_paid, referrer_id)
+        VALUES (user_id_input, username, amount_input, commission_amount, referrer_user_id);
     ELSE
         -- Create top-up record without referral info
-        INSERT INTO topup_records (user_id, amount)
-        VALUES (user_id_input, amount_input);
+        INSERT INTO topup_records (user_id, username, amount)
+        VALUES (user_id_input, username, amount_input);
     END IF;
     
     RETURN json_build_object(
@@ -378,7 +379,8 @@ BEGIN
         'had_referrer', referrer_user_id IS NOT NULL,
         'referrer', COALESCE(referrer_username, 'None'),
         'commission_paid', COALESCE(commission_amount, 0),
-        'referral_record_updated', record_updated > 0
+        'referral_record_updated', rows_updated > 0
     );
 END;
 $$;
+

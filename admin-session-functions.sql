@@ -22,12 +22,12 @@ CREATE OR REPLACE FUNCTION public.authenticate_admin(
   password_input VARCHAR(255)
 )
 RETURNS TABLE(
-  id UUID,
-  username VARCHAR(255),
-  email VARCHAR(255),
-  is_active BOOLEAN,
-  created_at TIMESTAMP WITH TIME ZONE,
-  last_login TIMESTAMP WITH TIME ZONE
+  admin_id UUID,
+  admin_username VARCHAR(255),
+  admin_email VARCHAR(255),
+  admin_is_active BOOLEAN,
+  admin_created_at TIMESTAMP WITH TIME ZONE,
+  admin_last_login TIMESTAMP WITH TIME ZONE
 )
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -36,10 +36,10 @@ DECLARE
   admin_record RECORD;
 BEGIN
   -- Find admin user by username
-  SELECT a.id, a.username, a.email, a.is_active, a.created_at, a.last_login, a.password_hash
+  SELECT au.id, au.username, au.email, au.is_active, au.created_at, au.last_login, au.password_hash
   INTO admin_record
-  FROM public.admin_users a
-  WHERE a.username = username_input AND a.is_active = true;
+  FROM public.admin_users au
+  WHERE au.username = username_input AND au.is_active = true;
 
   -- Check if admin exists
   IF NOT FOUND THEN
@@ -58,13 +58,13 @@ BEGIN
 
   -- Return admin data (excluding password_hash)
   RETURN QUERY
-  SELECT 
-    admin_record.id,
-    admin_record.username,
-    admin_record.email,
-    admin_record.is_active,
-    admin_record.created_at,
-    NOW() as last_login;
+  SELECT
+    admin_record.id AS admin_id,
+    admin_record.username AS admin_username,
+    admin_record.email AS admin_email,
+    admin_record.is_active AS admin_is_active,
+    admin_record.created_at AS admin_created_at,
+    NOW() AS admin_last_login;
 END;
 $$;
 
@@ -106,10 +106,10 @@ CREATE OR REPLACE FUNCTION public.validate_admin_session(
   session_token_input VARCHAR(255)
 )
 RETURNS TABLE(
-  id UUID,
-  username VARCHAR(255),
-  email VARCHAR(255),
-  is_active BOOLEAN,
+  admin_id UUID,
+  admin_username VARCHAR(255),
+  admin_email VARCHAR(255),
+  admin_is_active BOOLEAN,
   session_expires_at TIMESTAMP WITH TIME ZONE,
   last_activity TIMESTAMP WITH TIME ZONE
 )
@@ -161,12 +161,12 @@ BEGIN
   -- Return admin and session data
   RETURN QUERY
   SELECT 
-    admin_record.id,
-    admin_record.username,
-    admin_record.email,
-    admin_record.is_active,
-    session_record.expires_at,
-    NOW() as last_activity;
+    admin_record.id AS admin_id,
+    admin_record.username AS admin_username,
+    admin_record.email AS admin_email,
+    admin_record.is_active AS admin_is_active,
+    session_record.expires_at AS session_expires_at,
+    NOW() AS last_activity;
 END;
 $$;
 
@@ -226,12 +226,12 @@ CREATE OR REPLACE FUNCTION public.get_admin_by_session(
   session_token_input VARCHAR(255)
 )
 RETURNS TABLE(
-  id UUID,
-  username VARCHAR(255),
-  email VARCHAR(255),
-  is_active BOOLEAN,
-  created_at TIMESTAMP WITH TIME ZONE,
-  last_login TIMESTAMP WITH TIME ZONE,
+  admin_id UUID,
+  admin_username VARCHAR(255),
+  admin_email VARCHAR(255),
+  admin_is_active BOOLEAN,
+  admin_created_at TIMESTAMP WITH TIME ZONE,
+  admin_last_login TIMESTAMP WITH TIME ZONE,
   session_expires_at TIMESTAMP WITH TIME ZONE
 )
 LANGUAGE plpgsql
@@ -263,13 +263,13 @@ BEGIN
   -- Return admin data
   RETURN QUERY
   SELECT 
-    session_record.id,
-    session_record.username,
-    session_record.email,
-    session_record.is_active,
-    session_record.created_at,
-    session_record.last_login,
-    session_record.expires_at;
+    session_record.id AS admin_id,
+    session_record.username AS admin_username,
+    session_record.email AS admin_email,
+    session_record.is_active AS admin_is_active,
+    session_record.created_at AS admin_created_at,
+    session_record.last_login AS admin_last_login,
+    session_record.expires_at AS session_expires_at;
 END;
 $$;
 
@@ -299,11 +299,11 @@ CREATE OR REPLACE FUNCTION public.register_admin(
   email_input VARCHAR(255) DEFAULT NULL
 )
 RETURNS TABLE(
-  id UUID,
-  username VARCHAR(255),
-  email VARCHAR(255),
-  is_active BOOLEAN,
-  created_at TIMESTAMP WITH TIME ZONE
+  admin_id UUID,
+  admin_username VARCHAR(255),
+  admin_email VARCHAR(255),
+  admin_is_active BOOLEAN,
+  admin_created_at TIMESTAMP WITH TIME ZONE
 )
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -313,12 +313,12 @@ DECLARE
   password_hash_value VARCHAR(255);
 BEGIN
   -- Check if username already exists
-  IF EXISTS (SELECT 1 FROM public.admin_users WHERE username = username_input) THEN
+  IF EXISTS (SELECT 1 FROM public.admin_users au WHERE au.username = username_input) THEN
     RAISE EXCEPTION 'Username already exists';
   END IF;
 
   -- Check if email already exists (if provided)
-  IF email_input IS NOT NULL AND EXISTS (SELECT 1 FROM public.admin_users WHERE email = email_input) THEN
+  IF email_input IS NOT NULL AND EXISTS (SELECT 1 FROM public.admin_users au WHERE au.email = email_input) THEN
     RAISE EXCEPTION 'Email already exists';
   END IF;
 
@@ -333,12 +333,12 @@ BEGIN
   -- Return admin data (excluding password_hash)
   RETURN QUERY
   SELECT 
-    a.id,
-    a.username,
-    a.email,
-    a.is_active,
-    a.created_at
-  FROM public.admin_users a
-  WHERE a.id = new_admin_id;
+    au.id AS admin_id,
+    au.username AS admin_username,
+    au.email AS admin_email,
+    au.is_active AS admin_is_active,
+    au.created_at AS admin_created_at
+  FROM public.admin_users au
+  WHERE au.id = new_admin_id;
 END;
 $$;
