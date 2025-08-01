@@ -455,6 +455,157 @@ BEGIN
 END;
 $$;
 
+-- 11. Original register_wager_user function (reverted back to this)
+CREATE OR REPLACE FUNCTION public.register_wager_user(
+    username_input TEXT, 
+    password_input TEXT, 
+    phone_input TEXT, 
+    referred_by_id UUID DEFAULT NULL
+)
+RETURNS TABLE(
+    id UUID,
+    username TEXT,
+    phone TEXT,
+    password_hash TEXT,
+    is_active BOOLEAN,
+    login_count INTEGER,
+    created_at TIMESTAMP WITH TIME ZONE,
+    updated_at TIMESTAMP WITH TIME ZONE,
+    last_login TIMESTAMP WITH TIME ZONE,
+    points INTEGER,
+    is_vip BOOLEAN,
+    rank VARCHAR(50),
+    referred_by UUID,
+    status VARCHAR(20),
+    referral_code VARCHAR(20),
+    last_activity TIMESTAMP WITH TIME ZONE
+)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    new_user_id UUID;
+    user_referral_code TEXT;
+    referrer_username TEXT;
+    registration_bonus INTEGER := 50;
+BEGIN
+    -- Check if username already exists
+    IF EXISTS (
+        SELECT 1 FROM wager_wave_users existing_user
+        WHERE existing_user.username = username_input
+    ) THEN
+        RAISE EXCEPTION 'Username already exists';
+    END IF;
+
+    -- Check if phone already exists
+    IF phone_input IS NOT NULL AND EXISTS (
+        SELECT 1 FROM wager_wave_users existing_phone
+        WHERE existing_phone.phone = phone_input
+    ) THEN
+        RAISE EXCEPTION 'Phone number already registered';
+    END IF;
+
+    -- Hash the password and create user
+    INSERT INTO wager_wave_users (
+        username,
+        password_hash,
+        phone,
+        is_active,
+        login_count,
+        points,
+        is_vip,
+        rank,
+        status,
+        referred_by
+    )
+    VALUES (
+        username_input,
+        crypt(password_input, gen_salt('bf', 6)),
+        phone_input,
+        true,
+        0,
+        0,
+        false,
+        'Bronze',
+        'active',
+        referred_by_id
+    )
+    RETURNING wager_wave_users.id INTO new_user_id;
+
+    -- Generate referral code
+    user_referral_code := 'REF' || UPPER(LEFT(username_input, 6)) || RIGHT(REPLACE(new_user_id::text, '-', ''), 4);
+
+    -- Update user with referral code
+    UPDATE wager_wave_users 
+    SET referral_code = user_referral_code,
+        updated_at = NOW()
+    WHERE id = new_user_id;
+
+    -- Handle regular user referral bonus
+    IF referred_by_id IS NOT NULL THEN
+        SELECT referrer.username INTO referrer_username
+        FROM wager_wave_users referrer
+        WHERE referrer.id = referred_by_id AND referrer.is_active = true;
+
+        IF referrer_username IS NOT NULL THEN
+            UPDATE wager_wave_users 
+            SET points = COALESCE(points, 0) + registration_bonus,
+                last_activity = NOW(),
+                updated_at = NOW()
+            WHERE id = referred_by_id;
+
+            INSERT INTO referral_records (
+                referrer_id,
+                referred_user_id,
+                referred_username,
+                registration_date,
+                total_commission_earned
+            ) VALUES (
+                referred_by_id,
+                new_user_id,
+                username_input,
+                NOW(),
+                registration_bonus
+            );
+        END IF;
+    END IF;
+
+    -- Return the complete new user data
+    RETURN QUERY
+    SELECT
+        result_user.id,
+        result_user.username,
+        result_user.phone,
+        result_user.password_hash,
+        result_user.is_active,
+        result_user.login_count,
+        result_user.created_at,
+        result_user.updated_at,
+        result_user.last_login,
+        result_user.points,
+        result_user.is_vip,
+        result_user.rank,
+        result_user.referred_by,
+        result_user.status,
+        result_user.referral_code,
+        result_user.last_activity
+    FROM wager_wave_users result_user
+    WHERE result_user.id = new_user_id;
+
+EXCEPTION
+    WHEN unique_violation THEN
+        IF SQLERRM LIKE '%username%' THEN
+            RAISE EXCEPTION 'Username already exists';
+        ELSIF SQLERRM LIKE '%phone%' THEN
+            RAISE EXCEPTION 'Phone number already registered';
+        ELSE
+            RAISE EXCEPTION 'Registration failed: duplicate data';
+        END IF;
+    WHEN OTHERS THEN
+        RAISE EXCEPTION 'Registration failed: %', SQLERRM;
+END;
+$$;
+
 -- All done! Your promotional code system is now ready.
 -- Users can register with codes like 'PROMOTION123' and will receive bonus credits.
+-- The system now uses the original register_wager_user function with promotional code support added via TypeScript.
 -- Admin panel will show marketing sources instead of 'Direct signup'.

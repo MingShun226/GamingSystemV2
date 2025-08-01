@@ -92,37 +92,29 @@ export const authenticateUser = async (username: string, password: string) => {
   }
 };
 
-// Enhanced registration function with automatic code detection
-export const registerUser = async (username: string, password: string, phone?: string, codeInput?: string, promotionalCode?: string) => {
+// Registration function using original register_wager_user
+export const registerUser = async (username: string, password: string, phone?: string, referralCode?: string) => {
   try {
+    // First, convert referral code to referrer ID if provided
     let referredById = null;
-    let finalPromotionalCode = promotionalCode?.trim() || null;
-    
-    // If codeInput is provided, we need to determine if it's a referral code or promotional code
-    if (codeInput?.trim()) {
-      // First, try to find it as a user referral code
+    if (referralCode?.trim()) {
       const { data: referrerData } = await supabase
         .from('wager_wave_users')
         .select('id')
-        .eq('referral_code', codeInput.trim())
+        .eq('referral_code', referralCode.trim())
         .single();
       
       if (referrerData) {
-        // It's a user referral code
         referredById = referrerData.id;
-      } else {
-        // It's not a user referral code, so treat it as a promotional code
-        finalPromotionalCode = codeInput.trim();
       }
     }
 
-    // Use the new function that supports promotional codes
-    const { data, error } = await supabase.rpc('register_wager_user_with_promo', {
+    // Use the original function
+    const { data, error } = await supabase.rpc('register_wager_user', {
       username_input: username.trim(),
       password_input: password,
       phone_input: phone?.trim() || null,
-      referred_by_id: referredById,
-      promotional_code_input: finalPromotionalCode
+      referred_by_id: referredById
     });
 
     if (error) {
@@ -134,6 +126,36 @@ export const registerUser = async (username: string, password: string, phone?: s
 
     // PostgreSQL returns array, get first element and transform to expected format
     const userData = Array.isArray(data) ? data[0] : data;
+    
+    // After successful registration, check if referralCode might be a promotional code
+    if (referralCode?.trim() && !referredById && userData) {
+      // The referral code wasn't found as a user referral, so try it as a promotional code
+      try {
+        const promoResult = await supabase.rpc('record_marketing_registration', {
+          user_id_input: userData.id,
+          promo_code_input: referralCode.trim()
+        });
+        
+        if (promoResult.data && promoResult.data.success) {
+          console.log('Promotional code applied successfully:', promoResult.data);
+          // Refresh user data to get updated points and marketing source
+          const { data: updatedUser } = await supabase
+            .from('wager_wave_users')
+            .select('*')
+            .eq('id', userData.id)
+            .single();
+          
+          if (updatedUser) {
+            userData.points = updatedUser.points;
+            userData.marketing_source = updatedUser.marketing_source;
+          }
+        }
+      } catch (promoError) {
+        console.log('Promotional code processing failed:', promoError);
+        // Don't fail the registration if promo code fails
+      }
+    }
+    
     const transformedData = userData ? [{
       id: userData.id,
       username: userData.username,
@@ -143,8 +165,7 @@ export const registerUser = async (username: string, password: string, phone?: s
       is_active: userData.is_active,
       login_count: userData.login_count,
       created_at: userData.created_at,
-      marketing_source: userData.marketing_source,
-      promo_bonus_credits: userData.promo_bonus_credits
+      marketing_source: userData.marketing_source
     }] : data;
 
     return {
