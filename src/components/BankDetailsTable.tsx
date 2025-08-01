@@ -6,6 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Pencil, Trash2, Copy, RefreshCw, Search } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { getBankAccounts, deleteBankAccount, BankAccount as DBBankAccount } from '@/lib/supabase';
 
 interface BankAccount {
   id: string;
@@ -19,25 +20,48 @@ interface BankAccount {
 interface BankDetailsTableProps {
   onAddBank: () => void;
   onEditBank: (bank: BankAccount) => void;
+  onBankUpdated?: () => void;
 }
 
 type SortOption = 'none' | 'bankLimit-desc' | 'bankLimit-asc' | 'addedDate-desc' | 'addedDate-asc';
 
-const BankDetailsTable = ({ onAddBank, onEditBank }: BankDetailsTableProps) => {
+const BankDetailsTable = ({ onAddBank, onEditBank, onBankUpdated }: BankDetailsTableProps) => {
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   const [filteredBanks, setFilteredBanks] = useState<BankAccount[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortOption, setSortOption] = useState<SortOption>('none');
   const { toast } = useToast();
 
-  const loadBankAccounts = () => {
-    const savedBanks = JSON.parse(localStorage.getItem('bankAccounts') || '[]');
-    // Add default addedDate if not present
-    const banksWithDate = savedBanks.map((bank: BankAccount) => ({
-      ...bank,
-      addedDate: bank.addedDate || new Date().toISOString()
-    }));
-    setBankAccounts(banksWithDate);
+  const loadBankAccounts = async () => {
+    try {
+      const { data, error } = await getBankAccounts();
+      if (error) {
+        toast({
+          title: "Error",
+          description: error.message || "Failed to load bank accounts",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // Transform database format to component format
+      const transformedBanks = (data || []).map((bank: DBBankAccount) => ({
+        id: bank.id,
+        bankName: bank.bank_name,
+        accountNumber: bank.account_number,
+        holderName: bank.holder_name,
+        bankLimit: bank.bank_limit,
+        addedDate: bank.created_at
+      }));
+      
+      setBankAccounts(transformedBanks);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to load bank accounts",
+        variant: "destructive",
+      });
+    }
   };
 
   useEffect(() => {
@@ -78,14 +102,33 @@ const BankDetailsTable = ({ onAddBank, onEditBank }: BankDetailsTableProps) => {
     setFilteredBanks(filtered);
   }, [bankAccounts, searchTerm, sortOption]);
 
-  const handleDelete = (bankId: string) => {
-    const updatedBanks = bankAccounts.filter(bank => bank.id !== bankId);
-    localStorage.setItem('bankAccounts', JSON.stringify(updatedBanks));
-    setBankAccounts(updatedBanks);
-    toast({
-      title: "Success",
-      description: "Bank account deleted successfully",
-    });
+  const handleDelete = async (bankId: string) => {
+    try {
+      const { success, error } = await deleteBankAccount(bankId);
+      if (error) {
+        toast({
+          title: "Error",
+          description: error.message || "Failed to delete bank account",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      if (success) {
+        toast({
+          title: "Success",
+          description: "Bank account deleted successfully",
+        });
+        // Reload the bank accounts to reflect changes
+        loadBankAccounts();
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete bank account",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleCopyBankDetails = (bank: BankAccount) => {
@@ -105,8 +148,8 @@ const BankDetailsTable = ({ onAddBank, onEditBank }: BankDetailsTableProps) => {
     });
   };
 
-  const handleRefresh = () => {
-    loadBankAccounts();
+  const handleRefresh = async () => {
+    await loadBankAccounts();
     toast({
       title: "Refreshed",
       description: "Bank data has been refreshed",

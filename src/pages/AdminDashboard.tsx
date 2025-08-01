@@ -53,6 +53,7 @@ const AdminDashboard = () => {
   const [showAddBankDialog, setShowAddBankDialog] = useState(false);
   const [editingBank, setEditingBank] = useState<BankAccount | null>(null);
   const [activeTab, setActiveTab] = useState<'users' | 'banks'>('users');
+  const [bankTableKey, setBankTableKey] = useState(0);
   const [userSearchTerm, setUserSearchTerm] = useState('');
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -237,6 +238,10 @@ const AdminDashboard = () => {
   const handleEditBank = (bank: BankAccount) => {
     setEditingBank(bank);
     setShowAddBankDialog(true);
+  };
+
+  const handleBankUpdated = () => {
+    setBankTableKey(prev => prev + 1);
   };
 
   const formatDateTime = (dateString: string) => {
@@ -494,8 +499,10 @@ const AdminDashboard = () => {
         ) : (
           /* Bank Management Tab */
           <BankDetailsTable
+            key={bankTableKey}
             onAddBank={handleAddBank}
             onEditBank={handleEditBank}
+            onBankUpdated={handleBankUpdated}
           />
         )}
       </div>
@@ -543,6 +550,7 @@ const AdminDashboard = () => {
           setEditingBank(null);
         }}
         editingBank={editingBank}
+        onBankUpdated={handleBankUpdated}
       />
     </div>
   );

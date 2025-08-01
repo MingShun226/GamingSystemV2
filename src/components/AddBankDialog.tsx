@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
+import { addBankAccount, updateBankAccount } from '@/lib/supabase';
 
 interface BankAccount {
   id: string;
@@ -18,6 +19,7 @@ interface AddBankDialogProps {
   isOpen: boolean;
   onClose: () => void;
   editingBank: BankAccount | null;
+  onBankUpdated?: () => void;
 }
 
 const BANK_LIST = [
@@ -56,7 +58,7 @@ const BANK_LIST = [
   'United Overseas Bank (Malaysia) Bhd / 大华银行（马来西亚）'
 ];
 
-const AddBankDialog = ({ isOpen, onClose, editingBank }: AddBankDialogProps) => {
+const AddBankDialog = ({ isOpen, onClose, editingBank, onBankUpdated }: AddBankDialogProps) => {
   const [formData, setFormData] = useState({
     bankName: '',
     accountNumber: '',
@@ -97,7 +99,7 @@ const AddBankDialog = ({ isOpen, onClose, editingBank }: AddBankDialogProps) => 
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!formData.bankName || !formData.accountNumber || !formData.holderName) {
@@ -109,35 +111,55 @@ const AddBankDialog = ({ isOpen, onClose, editingBank }: AddBankDialogProps) => 
       return;
     }
 
-    const bankData: BankAccount = {
-      id: editingBank ? editingBank.id : Date.now().toString(),
-      bankName: formData.bankName,
-      accountNumber: formData.accountNumber,
-      holderName: formData.holderName,
-      bankLimit: formData.bankLimit ? Number(formData.bankLimit) : undefined
-    };
+    try {
+      const bankData = {
+        bank_name: formData.bankName,
+        account_number: formData.accountNumber,
+        holder_name: formData.holderName,
+        bank_limit: formData.bankLimit ? Number(formData.bankLimit) : undefined
+      };
 
-    const existingBanks = JSON.parse(localStorage.getItem('bankAccounts') || '[]');
-    let updatedBanks;
+      if (editingBank) {
+        const { data, error } = await updateBankAccount(editingBank.id, bankData);
+        if (error) {
+          toast({
+            title: "Error",
+            description: error.message || "Failed to update bank account",
+            variant: "destructive",
+          });
+          return;
+        }
+        toast({
+          title: "Success",
+          description: "Bank account updated successfully",
+        });
+      } else {
+        const { data, error } = await addBankAccount(bankData);
+        if (error) {
+          toast({
+            title: "Error",
+            description: error.message || "Failed to add bank account",
+            variant: "destructive",
+          });
+          return;
+        }
+        toast({
+          title: "Success",
+          description: "Bank account added successfully",
+        });
+      }
 
-    if (editingBank) {
-      updatedBanks = existingBanks.map((bank: BankAccount) => 
-        bank.id === editingBank.id ? bankData : bank
-      );
+      onClose();
+      if (onBankUpdated) {
+        onBankUpdated();
+      }
+    } catch (error) {
       toast({
-        title: "Success",
-        description: "Bank account updated successfully",
-      });
-    } else {
-      updatedBanks = [...existingBanks, bankData];
-      toast({
-        title: "Success",
-        description: "Bank account added successfully",
+        title: "Error",
+        description: "An unexpected error occurred",
+        variant: "destructive",
       });
     }
-
-    localStorage.setItem('bankAccounts', JSON.stringify(updatedBanks));
-    onClose();
   };
 
   return (
