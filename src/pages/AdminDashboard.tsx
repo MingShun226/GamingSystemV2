@@ -402,7 +402,21 @@ const AdminDashboard = () => {
                         <TableCell className="text-gaming-teal font-semibold">{user.points}</TableCell>
                         <TableCell className="text-gray-300">{user.phone || 'N/A'}</TableCell>
                         <TableCell className="text-gray-300">
-                          {(user as any).referrerUsername || 'Direct signup'}
+                          <div className="space-y-1">
+                            <div>
+                              {(user as any).referrerUsername && !(user as any).marketingSource ? 
+                                `Referred by: ${(user as any).referrerUsername}` : 
+                                (user as any).marketingSource ? 
+                                  `${(user as any).marketingSource}` :
+                                  'Direct signup'
+                              }
+                            </div>
+                            {(user as any).promoCode && (
+                              <div className="text-xs text-gaming-teal">
+                                Code: {(user as any).promoCode}
+                              </div>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center space-x-2">
@@ -445,7 +459,7 @@ const AdminDashboard = () => {
                           </div>
                         </TableCell>
                         <TableCell className="text-gray-300 text-sm">
-                          {formatDateTime(user.createdAt)}
+                          {formatDateTime((user as any).createdAt || user.created_at)}
                         </TableCell>
                         <TableCell>
                           <Button

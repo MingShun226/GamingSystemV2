@@ -381,11 +381,30 @@ export const getAllUsers = async () => {
   try {
     const { data, error } = await supabase
       .from('wager_wave_users')
-      .select('*')
+      .select(`
+        *,
+        referrer:referred_by(username),
+        marketing_registrations(
+          marketing_source,
+          promo_code,
+          campaign_name
+        )
+      `)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
-    return { data, error: null };
+    
+    // Transform the data to include referrer username and marketing source
+    const transformedData = data?.map(user => ({
+      ...user,
+      referrerUsername: user.referrer?.username || user.marketing_registrations?.[0]?.marketing_source || null,
+      createdAt: user.created_at, // Ensure proper date field mapping
+      marketingSource: user.marketing_registrations?.[0]?.marketing_source || null,
+      promoCode: user.marketing_registrations?.[0]?.promo_code || null,
+      campaignName: user.marketing_registrations?.[0]?.campaign_name || null
+    }));
+    
+    return { data: transformedData, error: null };
   } catch (error: any) {
     return { data: null, error: { message: error.message } };
   }
