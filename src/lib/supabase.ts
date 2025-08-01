@@ -92,8 +92,8 @@ export const authenticateUser = async (username: string, password: string) => {
   }
 };
 
-// Enhanced registration function with referral support
-export const registerUser = async (username: string, password: string, phone?: string, referralCode?: string) => {
+// Enhanced registration function with referral and promotional code support
+export const registerUser = async (username: string, password: string, phone?: string, referralCode?: string, promotionalCode?: string) => {
   try {
     // First, convert referral code to referrer ID if provided
     let referredById = null;
@@ -109,11 +109,13 @@ export const registerUser = async (username: string, password: string, phone?: s
       }
     }
 
-    const { data, error } = await supabase.rpc('register_wager_user', {
+    // Use the new function that supports promotional codes
+    const { data, error } = await supabase.rpc('register_wager_user_with_promo', {
       username_input: username.trim(),
       password_input: password,
       phone_input: phone?.trim() || null,
-      referred_by_id: referredById
+      referred_by_id: referredById,
+      promotional_code_input: promotionalCode?.trim() || null
     });
 
     if (error) {
@@ -133,7 +135,9 @@ export const registerUser = async (username: string, password: string, phone?: s
       points: userData.points,
       is_active: userData.is_active,
       login_count: userData.login_count,
-      created_at: userData.created_at
+      created_at: userData.created_at,
+      marketing_source: userData.marketing_source,
+      promo_bonus_credits: userData.promo_bonus_credits
     }] : data;
 
     return {
@@ -722,6 +726,160 @@ export const getAdminBySession = async (sessionToken: string) => {
       data: null,
       error: { message: 'Failed to get admin data' }
     };
+  }
+};
+
+// Marketing and promotional code functions
+export interface PromotionalCode {
+  id: string;
+  code: string;
+  marketing_source: string;
+  campaign_name?: string;
+  description?: string;
+  is_active: boolean;
+  usage_count: number;
+  max_usage?: number;
+  bonus_credits: number;
+  created_at: string;
+  expires_at?: string;
+}
+
+export interface MarketingRegistration {
+  id: string;
+  user_id: string;
+  promo_code: string;
+  marketing_source: string;
+  campaign_name?: string;
+  bonus_credits_awarded: number;
+  registration_date: string;
+}
+
+export interface MarketingAnalytics {
+  marketing_source: string;
+  campaign_name?: string;
+  total_registrations: number;
+  total_bonus_awarded: number;
+  avg_bonus_per_user: number;
+  registration_trend_7days: number;
+  most_recent_registration: string;
+}
+
+// Validate promotional code
+export const validatePromotionalCode = async (promoCode: string) => {
+  try {
+    const { data, error } = await supabase.rpc('validate_promotional_code', {
+      promo_code_input: promoCode.trim()
+    });
+
+    if (error) {
+      return {
+        data: null,
+        error: { message: error.message }
+      };
+    }
+
+    const validationData = Array.isArray(data) ? data[0] : data;
+    return {
+      data: validationData,
+      error: null
+    };
+  } catch (error) {
+    return {
+      data: null,
+      error: { message: 'Failed to validate promotional code' }
+    };
+  }
+};
+
+// Get marketing analytics (admin function)
+export const getMarketingAnalytics = async () => {
+  try {
+    const { data, error } = await supabase.rpc('get_marketing_analytics');
+
+    if (error) throw error;
+    return { data, error: null };
+  } catch (error: any) {
+    return { data: null, error: { message: error.message } };
+  }
+};
+
+// Get users by marketing source (admin function)
+export const getUsersByMarketingSource = async (sourceFilter?: string) => {
+  try {
+    const { data, error } = await supabase.rpc('get_users_by_marketing_source', {
+      source_filter: sourceFilter || null
+    });
+
+    if (error) throw error;
+    return { data, error: null };
+  } catch (error: any) {
+    return { data: null, error: { message: error.message } };
+  }
+};
+
+// Get all promotional codes (admin function)
+export const getPromotionalCodes = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('promotional_codes')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return { data, error: null };
+  } catch (error: any) {
+    return { data: null, error: { message: error.message } };
+  }
+};
+
+// Create promotional code (admin function)
+export const createPromotionalCode = async (codeData: Omit<PromotionalCode, 'id' | 'created_at' | 'usage_count'>) => {
+  try {
+    const { data, error } = await supabase
+      .from('promotional_codes')
+      .insert([{ ...codeData, usage_count: 0 }])
+      .select();
+
+    if (error) throw error;
+    return { data, error: null };
+  } catch (error: any) {
+    return { data: null, error: { message: error.message } };
+  }
+};
+
+// Update promotional code (admin function)
+export const updatePromotionalCode = async (id: string, updates: Partial<PromotionalCode>) => {
+  try {
+    const { data, error } = await supabase
+      .from('promotional_codes')
+      .update(updates)
+      .eq('id', id)
+      .select();
+
+    if (error) throw error;
+    return { data, error: null };
+  } catch (error: any) {
+    return { data: null, error: { message: error.message } };
+  }
+};
+
+// Get marketing registrations (admin function)
+export const getMarketingRegistrations = async (limit: number = 100) => {
+  try {
+    const { data, error } = await supabase
+      .from('marketing_registrations')
+      .select(`
+        *,
+        wager_wave_users:user_id (username, phone, points, is_active),
+        promotional_codes:promotional_code_id (code, marketing_source, campaign_name)
+      `)
+      .order('registration_date', { ascending: false })
+      .limit(limit);
+
+    if (error) throw error;
+    return { data, error: null };
+  } catch (error: any) {
+    return { data: null, error: { message: error.message } };
   }
 };
 
