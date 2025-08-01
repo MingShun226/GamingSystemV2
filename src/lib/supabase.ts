@@ -534,12 +534,17 @@ export interface AdminSession {
 // Admin authentication function
 export const authenticateAdmin = async (username: string, password: string) => {
   try {
+    console.log('Authenticating admin:', username);
+    
     const { data, error } = await supabase.rpc('authenticate_admin', {
       username_input: username.trim(),
       password_input: password
     });
 
+    console.log('Authentication RPC response:', { data, error });
+
     if (error) {
+      console.error('Authentication RPC error:', error);
       return {
         data: null,
         error: { message: error.message }
@@ -548,22 +553,27 @@ export const authenticateAdmin = async (username: string, password: string) => {
 
     // PostgreSQL functions return arrays, so get the first element
     const adminData = Array.isArray(data) ? data[0] : data;
+    console.log('Raw admin data from DB:', adminData);
     
     // Transform the returned data to match expected format
+    // The updated function should return data with exact column names from table
     const transformedData = adminData ? {
-      id: adminData.admin_id,
-      username: adminData.admin_username,
-      email: adminData.admin_email,
-      is_active: adminData.admin_is_active,
-      created_at: adminData.admin_created_at,
-      last_login: adminData.admin_last_login
+      id: adminData.id,
+      username: adminData.username,
+      email: adminData.email,
+      is_active: adminData.is_active,
+      created_at: adminData.created_at,
+      last_login: adminData.last_login
     } : null;
+
+    console.log('Transformed admin data:', transformedData);
 
     return {
       data: transformedData,
       error: null
     };
   } catch (error) {
+    console.error('Exception in authenticateAdmin:', error);
     return {
       data: null,
       error: { message: 'Admin authentication failed' }
@@ -574,11 +584,16 @@ export const authenticateAdmin = async (username: string, password: string) => {
 // Create admin session
 export const createAdminSession = async (adminId: string) => {
   try {
+    console.log('Creating admin session for admin ID:', adminId);
+    
     const { data, error } = await supabase.rpc('create_admin_session', {
       admin_id_input: adminId
     });
 
+    console.log('RPC response:', { data, error });
+
     if (error) {
+      console.error('RPC error:', error);
       return {
         data: null,
         error: { message: error.message }
@@ -587,12 +602,14 @@ export const createAdminSession = async (adminId: string) => {
 
     // PostgreSQL functions return arrays, so get the first element
     const sessionData = Array.isArray(data) ? data[0] : data;
+    console.log('Transformed session data:', sessionData);
 
     return {
       data: sessionData,
       error: null
     };
   } catch (error) {
+    console.error('Exception in createAdminSession:', error);
     return {
       data: null,
       error: { message: 'Failed to create admin session' }
@@ -728,33 +745,47 @@ export const getAdminBySession = async (sessionToken: string) => {
 // Register admin function
 export const registerAdmin = async (username: string, password: string, email?: string) => {
   try {
+    console.log('Registering admin:', username);
+    
     const { data, error } = await supabase.rpc('register_admin', {
       username_input: username.trim(),
       password_input: password,
       email_input: email?.trim() || null
     });
 
+    console.log('Registration RPC response:', { data, error });
+
     if (error) {
+      console.error('Registration RPC error:', error);
       return {
         data: null,
         error: { message: error.message }
       };
     }
 
+    // PostgreSQL functions return arrays, so get the first element
+    const adminData = Array.isArray(data) ? data[0] : data;
+    console.log('Raw registration data from DB:', adminData);
+
     // Transform the returned data to match expected format
-    const transformedData = data ? {
-      id: data.admin_id,
-      username: data.admin_username,
-      email: data.admin_email,
-      is_active: data.admin_is_active,
-      created_at: data.admin_created_at
+    // The updated function should return data with exact column names from table
+    const transformedData = adminData ? {
+      id: adminData.id,
+      username: adminData.username,
+      email: adminData.email,
+      is_active: adminData.is_active,
+      created_at: adminData.created_at,
+      last_login: adminData.last_login
     } : null;
+
+    console.log('Transformed registration data:', transformedData);
 
     return {
       data: transformedData,
       error: null
     };
   } catch (error) {
+    console.error('Exception in registerAdmin:', error);
     return {
       data: null,
       error: { message: 'Admin registration failed' }
