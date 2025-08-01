@@ -92,20 +92,27 @@ export const authenticateUser = async (username: string, password: string) => {
   }
 };
 
-// Enhanced registration function with referral and promotional code support
-export const registerUser = async (username: string, password: string, phone?: string, referralCode?: string, promotionalCode?: string) => {
+// Enhanced registration function with automatic code detection
+export const registerUser = async (username: string, password: string, phone?: string, codeInput?: string, promotionalCode?: string) => {
   try {
-    // First, convert referral code to referrer ID if provided
     let referredById = null;
-    if (referralCode?.trim()) {
+    let finalPromotionalCode = promotionalCode?.trim() || null;
+    
+    // If codeInput is provided, we need to determine if it's a referral code or promotional code
+    if (codeInput?.trim()) {
+      // First, try to find it as a user referral code
       const { data: referrerData } = await supabase
         .from('wager_wave_users')
         .select('id')
-        .eq('referral_code', referralCode.trim())
+        .eq('referral_code', codeInput.trim())
         .single();
       
       if (referrerData) {
+        // It's a user referral code
         referredById = referrerData.id;
+      } else {
+        // It's not a user referral code, so treat it as a promotional code
+        finalPromotionalCode = codeInput.trim();
       }
     }
 
@@ -115,7 +122,7 @@ export const registerUser = async (username: string, password: string, phone?: s
       password_input: password,
       phone_input: phone?.trim() || null,
       referred_by_id: referredById,
-      promotional_code_input: promotionalCode?.trim() || null
+      promotional_code_input: finalPromotionalCode
     });
 
     if (error) {
